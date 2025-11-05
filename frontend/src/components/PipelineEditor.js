@@ -551,56 +551,113 @@ function PipelineEditor() {
           </div>
 
           <div className="form-section">
-            <h3>Format & Quality</h3>
+          <h3>Format & Quality</h3>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>Format</label>
-                <select
-                  value={singleAssetForm.format.type}
-                  onChange={(e) => setSingleAssetForm({
-                    ...singleAssetForm,
-                    format: {...singleAssetForm.format, type: e.target.value}
-                  })}
-                >
-                  {IMAGE_FORMATS.map(fmt => (
-                    <option key={fmt.value} value={fmt.value}>{fmt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Quality (1-100)</label>
-                <input
-                  type="number"
-                  value={singleAssetForm.format.quality}
-                  onChange={(e) => setSingleAssetForm({
-                    ...singleAssetForm,
-                    format: {...singleAssetForm.format, quality: parseInt(e.target.value)}
-                  })}
-                  min="1"
-                  max="100"
-                />
-                <small>Balance between file size and quality</small>
-              </div>
-
-              {singleAssetForm.format.type === 'png' && (
-                <div className="form-group">
-                  <label>Compression (1-9)</label>
-                  <input
-                    type="number"
-                    value={singleAssetForm.format.compression}
-                    onChange={(e) => setSingleAssetForm({
-                      ...singleAssetForm,
-                      format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
-                    })}
-                    min="1"
-                    max="9"
-                  />
-                </div>
-              )}
-            </div>
+          <div className="form-group">
+            <label>Format</label>
+            <select
+              value={singleAssetForm.format.type}
+              onChange={(e) => setSingleAssetForm({
+                ...singleAssetForm,
+                format: {...singleAssetForm.format, type: e.target.value}
+              })}
+            >
+              {IMAGE_FORMATS.map(fmt => (
+                <option key={fmt.value} value={fmt.value}>{fmt.label}</option>
+              ))}
+            </select>
           </div>
+
+          {/* Quality (Lossy) - shown for JPEG and WebP */}
+          {['jpeg', 'webp'].includes(singleAssetForm.format.type) && (
+            <div className="form-group">
+              <div className="slider-header">
+                <label>Quality (Lossy) — 0-100</label>
+                <span className="slider-value">{singleAssetForm.format.quality}</span>
+              </div>
+              <input
+                type="range"
+                value={singleAssetForm.format.quality}
+                onChange={(e) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, quality: parseInt(e.target.value)}
+                })}
+                min="0"
+                max="100"
+                className="quality-slider"
+              />
+              <small>Higher = better quality, larger file. Controls lossy compression (detail loss).</small>
+            </div>
+          )}
+
+          {/* Compression (Lossless) - shown for PNG and PNG8 */}
+          {['png', 'png8'].includes(singleAssetForm.format.type) && (
+            <div className="form-group">
+              <div className="slider-header">
+                <label>Compression (Lossless) — 0-100</label>
+                <span className="slider-value">{singleAssetForm.format.compression}</span>
+              </div>
+              <input
+                type="range"
+                value={singleAssetForm.format.compression}
+                onChange={(e) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
+                })}
+                min="0"
+                max="100"
+                className="compression-slider"
+              />
+              <small>Higher = smaller file, slower processing. Controls lossless compression (no detail loss).</small>
+            </div>
+          )}
+
+          {/* WebP supports both */}
+          {singleAssetForm.format.type === 'webp' && (
+            <div className="form-group">
+              <div className="slider-header">
+                <label>Lossless Compression — 0-100</label>
+                <span className="slider-value">{singleAssetForm.format.compression}</span>
+              </div>
+              <input
+                type="range"
+                value={singleAssetForm.format.compression}
+                onChange={(e) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
+                })}
+                min="0"
+                max="100"
+                className="compression-slider"
+              />
+              <small>Additional lossless optimization (WebP already has lossy Quality above).</small>
+            </div>
+          )}
+
+  {/* Format info box */}
+  <div className="format-info-box">
+    {singleAssetForm.format.type === 'png' && (
+      <div>
+        <strong>📌 PNG 24-bit</strong> — Lossless. Perfect for graphics with transparency. Compression slider controls file size.
+      </div>
+    )}
+    {singleAssetForm.format.type === 'png8' && (
+      <div>
+        <strong>📌 PNG 8-bit</strong> — Indexed palette (max 256 colors). Smaller files. Great for simple graphics with transparency.
+      </div>
+    )}
+    {singleAssetForm.format.type === 'jpeg' && (
+      <div>
+        <strong>📌 JPEG</strong> — Lossy compression (optimized with mozjpeg). No transparency. Quality slider controls detail preservation.
+      </div>
+    )}
+    {singleAssetForm.format.type === 'webp' && (
+      <div>
+        <strong>📌 WebP</strong> — Modern format supporting both lossy and lossless. Best compatibility with modern browsers.
+      </div>
+    )}
+  </div>
+</div>
 
           <div className="form-section">
             <h3>Color & ICC Profile</h3>

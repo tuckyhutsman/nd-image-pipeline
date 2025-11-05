@@ -229,6 +229,100 @@
   margin-bottom: 0;
 }
 
+/* Slider Controls */
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.slider-header label {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.slider-value {
+  background: #007bff;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.quality-slider,
+.compression-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+/* Slider thumb styling for Chrome, Edge, Firefox */
+.quality-slider::-webkit-slider-thumb,
+.compression-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #007bff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  transition: all 0.2s;
+}
+
+.quality-slider::-webkit-slider-thumb:hover,
+.compression-slider::-webkit-slider-thumb:hover {
+  background: #0056b3;
+  box-shadow: 0 2px 8px rgba(0, 86, 179, 0.4);
+  transform: scale(1.1);
+}
+
+.quality-slider::-moz-range-thumb,
+.compression-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #007bff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  transition: all 0.2s;
+}
+
+.quality-slider::-moz-range-thumb:hover,
+.compression-slider::-moz-range-thumb:hover {
+  background: #0056b3;
+  box-shadow: 0 2px 8px rgba(0, 86, 179, 0.4);
+}
+
+/* Format info box */
+.format-info-box {
+  background: #f0f7ff;
+  border-left: 4px solid #007bff;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 15px;
+  font-size: 13px;
+  color: #1565c0;
+  line-height: 1.6;
+}
+
+.format-info-box strong {
+  color: #0056b3;
+}
+
 /* Output Arrangement */
 .output-arrangement {
   display: grid;
