@@ -3,19 +3,53 @@ const { v4: uuid } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
+
+const {
+  createBatch,
+  calculateTotalSize,
+} = require('../helpers/batch-helpers');
+
 const router = express.Router();
 
 const OUTPUT_PATH = process.env.OUTPUT_PATH || '/tmp/pipeline-output';
 
-// GET /api/jobs - List all jobs
+// GET /api/jobs - List all jobs grouped by batch
 router.get('/', async (req, res) => {
   try {
     const result = await global.db.query(`
-      SELECT id, pipeline_id, status, created_at, updated_at, file_name 
-      FROM jobs 
-      ORDER BY created_at DESC 
+      SELECT 
+        b.id as batch_id,
+        b.base_directory_name,
+        b.render_description,
+        b.customer_prefix,
+        b.status as batch_status,
+        b.total_files,
+        b.created_at as batch_created_at,
+        COUNT(j.id) as job_count,
+        COUNT(CASE WHEN j.status = 'completed' THEN 1 END) as completed_count,
+        COUNT(CASE WHEN j.status = 'failed' THEN 1 END) as failed_count
+      FROM batches b
+      LEFT JOIN jobs j ON b.id = j.batch_id
+      GROUP BY b.id
+      ORDER BY b.created_at DESC
       LIMIT 50
     `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/jobs/batch/:batch_id - Get all jobs in a batch
+router.get('/batch/:batch_id', async (req, res) => {
+  try {
+    const result = await global.db.query(
+      `SELECT id, pipeline_id, status, file_name, created_at, updated_at 
+       FROM jobs 
+       WHERE batch_id = $1 
+       ORDER BY created_at ASC`,
+      [req.params.batch_id]
+    );
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -53,32 +87,21 @@ const getExtensionForFormat = (formatType) => {
 };
 
 // Helper: Generate proper output filename
-// ISSUE #2 FIX: Format filename as {input_base}{suffix}.{extension}
 const generateProperFileName = (inputFile, suffix, format) => {
-  // Remove extension from input filename
   const inputBase = inputFile.replace(/\.[^.]+$/, '');
-  // Get extension for format
   const ext = getExtensionForFormat(format);
-  // Construct: basename + suffix + extension
   return `${inputBase}${suffix}${ext}`;
 };
 
 // Helper: Format Content-Disposition header properly
-// RFC 6266 compliant with UTF-8 and special character handling
 const formatContentDisposition = (filename, isAttachment = true) => {
-  // Escape special characters for Content-Disposition
   const safeName = filename.replace(/"/g, '\\"');
   const type = isAttachment ? 'attachment' : 'inline';
-  
-  // Use filename*= for UTF-8 encoding (RFC 5987)
-  // and filename= for backward compatibility
   const encodedName = encodeURIComponent(filename);
   return `${type}; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
 };
 
-// GET /api/jobs/:id/download - Download job outputs as ZIP or single file
-// FIX #5: Excludes input_* files from downloads
-// ISSUE #2 FIX: Proper file naming with input name + pipeline suffix + format extension
+// GET /api/jobs/:id/download - Download job outputs
 router.get('/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
@@ -89,11 +112,11 @@ router.get('/:id/download', async (req, res) => {
     }
 
     const job = jobResult.rows[0];
-    const inputFileName = job.file_name; // e.g., "photo.png"
+    const inputFileName = job.file_name;
     
     console.log(`[DOWNLOAD] Job ID: ${id}, Input file: ${inputFileName}, Pipeline ID: ${job.pipeline_id}`);
     
-    // Get pipeline config to extract suffix and format
+    // Get pipeline config
     let pipelineConfig = {};
     try {
       const pipelineResult = await global.db.query(
@@ -105,9 +128,6 @@ router.get('/:id/download', async (req, res) => {
         pipelineConfig = typeof pipelineResult.rows[0].config === 'string' 
           ? JSON.parse(pipelineResult.rows[0].config) 
           : pipelineResult.rows[0].config;
-        console.log(`[DOWNLOAD] Pipeline config found:`, JSON.stringify(pipelineConfig).substring(0, 200));
-      } else {
-        console.log(`[DOWNLOAD] No pipeline config found for ID ${job.pipeline_id}`);
       }
     } catch (err) {
       console.error(`[DOWNLOAD] Error fetching pipeline config:`, err.message);
@@ -119,21 +139,16 @@ router.get('/:id/download', async (req, res) => {
     const allFiles = fs.readdirSync(outputDir);
     const outputFiles = allFiles.filter(file => !file.startsWith('input_'));
 
-    console.log(`[DOWNLOAD] Output files:`, outputFiles);
-
     if (outputFiles.length === 0) {
       return res.status(404).json({ error: 'No output files found for this job' });
     }
 
     if (outputFiles.length === 1) {
-      // Single file - download directly with proper name
+      // Single file download
       const format = pipelineConfig?.format?.type || 'jpeg';
       const suffix = pipelineConfig?.suffix || '';
       const properFileName = generateProperFileName(inputFileName, suffix, format);
       
-      console.log(`[DOWNLOAD] Single file: format="${format}", suffix="${suffix}", properFileName="${properFileName}"`);
-      
-      // Set proper headers for download
       res.setHeader('Content-Disposition', formatContentDisposition(properFileName));
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -142,12 +157,10 @@ router.get('/:id/download', async (req, res) => {
       
       res.sendFile(path.join(outputDir, outputFiles[0]));
     } else {
-      // Multiple files - create ZIP with proper individual names
+      // Multiple files - create ZIP
       const format = pipelineConfig?.format?.type || 'jpeg';
       const suffix = pipelineConfig?.suffix || '';
       const zipName = `job-${id.substring(0, 8)}.zip`;
-      
-      console.log(`[DOWNLOAD] Multiple files (${outputFiles.length}): format="${format}", suffix="${suffix}"`);
       
       res.setHeader('Content-Disposition', formatContentDisposition(zipName));
       res.setHeader('Content-Type', 'application/zip');
@@ -159,9 +172,7 @@ router.get('/:id/download', async (req, res) => {
       archive.pipe(res);
       
       outputFiles.forEach(file => {
-        // For each file, use proper naming
         const properFileName = generateProperFileName(inputFileName, suffix, format);
-        console.log(`[DOWNLOAD] Adding to ZIP: ${file} -> ${properFileName}`);
         archive.file(path.join(outputDir, file), { name: properFileName });
       });
       
@@ -173,18 +184,36 @@ router.get('/:id/download', async (req, res) => {
   }
 });
 
-// POST /api/jobs - Submit single job
+// POST /api/jobs - Submit single job (creates or joins batch)
 router.post('/', async (req, res) => {
-  const { pipeline_id, file_name, file_data } = req.body;
+  const { pipeline_id, file_name, file_data, batch_description, customer_prefix } = req.body;
   const job_id = uuid();
 
   try {
+    // Create batch for single job submission
+    let batchId;
+    try {
+      const batch = await createBatch(global.db, {
+        filenames: [file_name],
+        renderDescription: batch_description,
+        pipelineId: pipeline_id,
+        totalSize: file_data ? Math.ceil(file_data.length * 0.75) : 0,
+      });
+      batchId = batch.id;
+      console.log(`Created batch ${batchId} for single job`);
+    } catch (batchErr) {
+      console.error('Error creating batch:', batchErr);
+      return res.status(400).json({ error: `Batch creation failed: ${batchErr.message}` });
+    }
+
+    // Create job tied to batch
     await global.db.query(
-      `INSERT INTO jobs (id, pipeline_id, status, file_name, input_data) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [job_id, pipeline_id, 'queued', file_name, file_data]
+      `INSERT INTO jobs (id, batch_id, pipeline_id, status, file_name, input_data) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [job_id, batchId, pipeline_id, 'queued', file_name, file_data]
     );
 
+    // Queue the job
     await global.imageQueue.add('process-image', {
       job_id,
       pipeline_id,
@@ -192,38 +221,61 @@ router.post('/', async (req, res) => {
       file_data,
     });
 
-    res.status(201).json({ job_id, status: 'queued' });
+    res.status(201).json({ 
+      job_id, 
+      batch_id: batchId,
+      status: 'queued' 
+    });
   } catch (err) {
+    console.error('Error submitting job:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/jobs/batch - Submit multiple jobs at once
+// POST /api/jobs/batch - Submit multiple jobs at once (creates batch)
 router.post('/batch', async (req, res) => {
-  const { pipeline_id, files } = req.body;
+  const { pipeline_id, files, batch_description } = req.body;
 
   if (!Array.isArray(files) || files.length === 0) {
     return res.status(400).json({ error: 'files must be a non-empty array' });
   }
 
-  // Limit batch size to prevent overwhelming the queue
   if (files.length > 100) {
     return res.status(400).json({ error: 'Maximum 100 files per batch' });
   }
 
   try {
-    const jobIds = [];
+    // Create batch
+    const filenames = files.map(f => f.file_name);
+    const totalSize = calculateTotalSize(files);
 
+    let batch;
+    try {
+      batch = await createBatch(global.db, {
+        filenames,
+        renderDescription: batch_description,
+        pipelineId: pipeline_id,
+        totalSize,
+      });
+      console.log(`Created batch ${batch.id} with ${files.length} files`);
+    } catch (batchErr) {
+      console.error('Error creating batch:', batchErr);
+      return res.status(400).json({ error: `Batch creation failed: ${batchErr.message}` });
+    }
+
+    // Create jobs for all files
+    const jobIds = [];
     for (const file of files) {
       const { file_name, file_data } = file;
       const job_id = uuid();
 
       await global.db.query(
-        `INSERT INTO jobs (id, pipeline_id, status, file_name, input_data) 
-         VALUES ($1, $2, $3, $4, $5)`,
-        [job_id, pipeline_id, 'queued', file_name, file_data]
+        `INSERT INTO jobs (id, batch_id, pipeline_id, status, file_name, input_data) 
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [job_id, batch.id, pipeline_id, 'queued', file_name, file_data]
       );
 
+      // Queue the job
       await global.imageQueue.add('process-image', {
         job_id,
         pipeline_id,
@@ -235,17 +287,19 @@ router.post('/batch', async (req, res) => {
     }
 
     res.status(201).json({
-      batch_id: uuid(),
+      batch_id: batch.id,
+      base_directory_name: batch.base_directory_name,
       job_count: jobIds.length,
       job_ids: jobIds,
       status: 'queued',
     });
   } catch (err) {
+    console.error('Error submitting batch:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/jobs/stats - Real-time monitoring stats
+// GET /api/jobs/stats/dashboard - Real-time monitoring stats
 router.get('/stats/dashboard', async (req, res) => {
   try {
     // Queue statistics

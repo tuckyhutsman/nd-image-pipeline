@@ -58,6 +58,7 @@ global.imageQueue = new Queue('image-processing', {
 
 // Routes
 app.use('/api/pipelines', require('./routes/pipelines'));
+app.use('/api/batches', require('./routes/batches'));
 app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/health', require('./routes/health'));
