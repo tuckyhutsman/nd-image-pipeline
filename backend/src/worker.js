@@ -81,9 +81,15 @@ class ImagePipelineWorker {
         throw new Error(`Pipeline ${pipeline_id} not found`);
       }
 
-      const pipelineConfig = pipelineResult.rows[0].config;
+      let pipelineConfig = pipelineResult.rows[0].config;
       if (typeof pipelineConfig === 'string') {
         pipelineConfig = JSON.parse(pipelineConfig);
+      }
+
+      // Validate pipeline config structure
+      if (!pipelineConfig || !pipelineConfig.operations) {
+        console.error('Invalid pipeline config:', pipelineConfig);
+        throw new Error(`Pipeline configuration invalid. Got: ${JSON.stringify(pipelineConfig)}`);
       }
 
       // Decode base64 file data
