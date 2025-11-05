@@ -37,6 +37,7 @@
   color: #333;
 }
 
+.form-group input[type="text"],
 .form-group select {
   width: 100%;
   padding: 0.75rem;
@@ -44,23 +45,43 @@
   border-radius: 4px;
   font-size: 1rem;
   background: white;
-  cursor: pointer;
+  box-sizing: border-box;
 }
 
+.form-group input[type="text"]:hover,
 .form-group select:hover {
   border-color: #bbb;
 }
 
+.form-group input[type="text"]:focus,
 .form-group select:focus {
   outline: none;
   border-color: #0066cc;
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 }
 
+.form-group input[type="text"]:disabled,
 .form-group select:disabled {
   background: #f5f5f5;
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.form-group select {
+  cursor: pointer;
+}
+
+/* Small text for descriptions */
+.form-group small {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.form-group .info-text {
+  color: #0066cc;
+  margin-top: 0.2rem;
 }
 
 /* Drag-Drop Zone */

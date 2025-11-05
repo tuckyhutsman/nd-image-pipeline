@@ -379,13 +379,13 @@ class ImagePipelineWorker {
     const formatType = format.type;
 
     // Convert Quality and Compression from 0-100 scale to format-specific values
-    const lossy = format.quality || 80;          // 0-100 for lossy compression
-    const lossless = format.compression || 50;   // 0-100 for lossless compression
+    const lossy = format.quality || 80;          // 0-100 for lossy compression (detail preservation)
+    const lossless = format.compression || 50;   // 0-100 for lossless compression (file size)
 
     switch (formatType) {
       case 'png': {
-        // For PNG: Compression is 1-9 (map from 0-100)
-        // Quality is ignored (PNG is lossless)
+        // For PNG: Compression is 0-100 scale (maps to level 1-9 + external tools)
+        // Quality is ignored (PNG is lossless by nature)
         const compressionLevel = Math.ceil((lossless / 100) * 9);
 
         const pngOptions = {
@@ -396,53 +396,190 @@ class ImagePipelineWorker {
         };
 
         await image.png(pngOptions).toFile(outputPath);
+
+        // If compression > 70, apply additional external optimization
+        if (lossless > 70) {
+          await this.optimizePNG(outputPath, lossless);
+        }
         break;
       }
 
       case 'jpeg': {
-        // For JPEG: Quality is 1-100
-        // Compression is ignored (JPEG always loses info)
+        // For JPEG: Quality (lossy) is 0-100 scale
+        // Compression slider affects mozjpeg parameters for aggressive optimization
         const jpegQuality = Math.max(1, Math.min(100, lossy));
+
+        // Adjust mozjpeg intensity based on compression setting (0-100)
+        // 0-30: Very aggressive compression
+        // 31-60: Aggressive compression
+        // 61-85: Balanced
+        // 86-100: High quality
+        let trellis = true;         // Enable trellis quantization
+        let overshoot = true;       // Enable trellis overshoot optimization
+        let optimizeScans = true;   // Optimize progressive JPEG scan tables
+        let quantizationTable = 3;  // Standard table
+
+        if (lossless < 30) {
+          quantizationTable = 4;    // Most aggressive quantization table
+          optimizeScans = false;    // Disable scan optimization for maximum compression
+        } else if (lossless < 60) {
+          quantizationTable = 3;    // Aggressive
+        } else if (lossless < 85) {
+          quantizationTable = 2;    // Balanced
+        } else {
+          quantizationTable = 1;    // High quality
+        }
 
         const jpegOptions = {
           quality: jpegQuality,
           progressive: true,
-          mozjpeg: true,  // Use mozjpeg for better compression
+          mozjpeg: true,
+          trellis,
+          overshoot,
+          optimizeScans,
+          quantizationTable,
         };
 
+        console.log(`  JPEG: quality=${jpegQuality}, compression=${lossless}/100, trellis=${trellis}, quantTable=${quantizationTable}`);
         await image.jpeg(jpegOptions).toFile(outputPath);
         break;
       }
 
       case 'webp': {
-        // For WebP: Quality is 1-100
+        // For WebP: Quality (lossy) is 0-100, Compression (lossless filter) is 0-100
         const webpQuality = Math.max(1, Math.min(100, lossy));
+        const webpEffort = Math.max(0, Math.min(6, Math.ceil((lossless / 100) * 6)));  // 0-6 effort
 
         const webpOptions = {
           quality: webpQuality,
-          alphaQuality: 100,  // Keep alpha channel high quality
+          alphaQuality: Math.max(1, Math.min(100, lossy)),
+          effort: webpEffort,  // Higher effort = better compression but slower
         };
 
+        console.log(`  WebP: quality=${webpQuality}, effort=${webpEffort}/6`);
         await image.webp(webpOptions).toFile(outputPath);
         break;
       }
 
       case 'png8': {
-        // PNG 8-bit (indexed color)
+        // PNG 8-bit (indexed color, max 256 colors)
         const compressionLevel = Math.ceil((lossless / 100) * 9);
 
         const pngOptions = {
           compressionLevel,
-          palette: true,  // Use indexed color palette
+          palette: true,  // Use indexed color palette (max 256 colors)
           bitDepth: 8,
         };
 
         await image.png(pngOptions).toFile(outputPath);
+
+        // Apply pngquant for additional compression if requested (compression > 60)
+        if (lossless > 60) {
+          await this.optimizePNG8(outputPath, lossless);
+        }
         break;
       }
 
       default:
         throw new Error(`Unsupported format: ${formatType}`);
+    }
+  }
+
+  // Additional PNG optimization using external tools (pngcrush, pngquant)
+  async optimizePNG(pngPath, compressionLevel) {
+    try {
+      const { execSync } = require('child_process');
+
+      // Check if pngcrush is available (preferred for PNG optimization)
+      try {
+        execSync('which pngcrush', { stdio: 'ignore' });
+        
+        const args = ['-p'];  // Preserve color palette info
+        if (compressionLevel > 85) {
+          args.push('-brute');  // Brute force mode for maximum compression
+        } else if (compressionLevel > 70) {
+          args.push('-max');    // Maximum compression
+        }
+
+        const tempPath = `${pngPath}.pngcrush`;
+        execSync(`pngcrush ${args.join(' ')} "${pngPath}" "${tempPath}"`, { stdio: 'pipe' });
+
+        // Replace original only if optimized version is smaller
+        const origSize = await fs.stat(pngPath);
+        const optSize = await fs.stat(tempPath);
+
+        if (optSize.size < origSize.size) {
+          await fs.move(tempPath, pngPath, { overwrite: true });
+          const reduction = Math.round((1 - optSize.size / origSize.size) * 100);
+          console.log(`  ✓ PNG optimized with pngcrush: ${Math.round(origSize.size / 1024)}KB → ${Math.round(optSize.size / 1024)}KB (-${reduction}%)`);
+        } else {
+          await fs.remove(tempPath);
+        }
+        return;  // Success, exit
+      } catch (e) {
+        // pngcrush not available, try pngquant
+      }
+
+      // Fallback to pngquant for additional quality-preserving compression
+      try {
+        execSync('which pngquant', { stdio: 'ignore' });
+        
+        // pngquant reduces colors while maintaining quality
+        // Compression 0-100 -> colors 256 down to 64
+        const colors = Math.max(64, Math.min(256, Math.ceil((compressionLevel / 100) * 256)));
+        const tempPath = `${pngPath}-quant.png`;
+        
+        execSync(`pngquant --quality 80-100 --ncolors ${colors} "${pngPath}" -o "${tempPath}"`, { stdio: 'pipe' });
+
+        const origSize = await fs.stat(pngPath);
+        const optSize = await fs.stat(tempPath);
+
+        if (optSize.size < origSize.size) {
+          await fs.move(tempPath, pngPath, { overwrite: true });
+          const reduction = Math.round((1 - optSize.size / origSize.size) * 100);
+          console.log(`  ✓ PNG optimized with pngquant: ${Math.round(origSize.size / 1024)}KB → ${Math.round(optSize.size / 1024)}KB (-${reduction}%)`);
+        } else {
+          await fs.remove(tempPath);
+        }
+      } catch (e) {
+        console.log(`  ℹ PNG external optimization skipped (pngcrush/pngquant not available)`);
+      }
+    } catch (error) {
+      console.warn(`  ⚠ PNG optimization warning: ${error.message}`);
+      // Don't fail job if external optimization fails
+    }
+  }
+
+  // Additional PNG8 optimization using pngquant
+  async optimizePNG8(pngPath, compressionLevel) {
+    try {
+      const { execSync } = require('child_process');
+
+      try {
+        execSync('which pngquant', { stdio: 'ignore' });
+
+        // For PNG8, reduce colors based on compression level
+        // High compression = fewer colors
+        const colors = Math.max(2, Math.min(256, Math.ceil((compressionLevel / 100) * 256)));
+        const tempPath = `${pngPath}-quant.png`;
+
+        execSync(`pngquant --quality 75-90 --ncolors ${colors} --speed 1 "${pngPath}" -o "${tempPath}"`, { stdio: 'pipe' });
+
+        const origSize = await fs.stat(pngPath);
+        const optSize = await fs.stat(tempPath);
+
+        if (optSize.size < origSize.size) {
+          await fs.move(tempPath, pngPath, { overwrite: true });
+          const reduction = Math.round((1 - optSize.size / origSize.size) * 100);
+          console.log(`  ✓ PNG8 optimized: ${Math.round(origSize.size / 1024)}KB → ${Math.round(optSize.size / 1024)}KB (-${reduction}%) with ${colors} colors`);
+        } else {
+          await fs.remove(tempPath);
+        }
+      } catch (e) {
+        console.log(`  ℹ PNG8 optimization skipped (pngquant not available)`);
+      }
+    } catch (error) {
+      console.warn(`  ⚠ PNG8 optimization warning: ${error.message}`);
     }
   }
 

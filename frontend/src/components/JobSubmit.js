@@ -3,6 +3,7 @@ import './JobSubmit.css';
 
 const JobSubmit = ({ pipelines, onJobSubmitted }) => {
   const [selectedPipeline, setSelectedPipeline] = useState('');
+  const [batchDescription, setBatchDescription] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -12,6 +13,7 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
   const ACCEPTED_FORMATS = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff'];
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
   const MAX_BATCH_SIZE = 100;
+  const MAX_DESCRIPTION_LENGTH = 50;
 
   // Reference for file input
   const fileInputRef = React.useRef(null);
@@ -25,6 +27,27 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
       return `${file.name}: File too large (max 50MB)`;
     }
     return null;
+  };
+
+  // Validate batch description
+  const validateDescription = (desc) => {
+    if (desc.length > MAX_DESCRIPTION_LENGTH) {
+      return `Description too long (max ${MAX_DESCRIPTION_LENGTH} characters)`;
+    }
+    if (desc && !/^[a-zA-Z0-9_-]+$/.test(desc)) {
+      return 'Description can only contain alphanumeric characters, hyphens, and underscores';
+    }
+    return null;
+  };
+
+  // Handle batch description change
+  const handleDescriptionChange = (e) => {
+    const value = e.target.value;
+    setBatchDescription(value);
+    // Clear any validation errors as user is correcting
+    if (error.includes('Description')) {
+      setError('');
+    }
   };
 
   // Handle file input change
@@ -102,6 +125,20 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
     });
   };
 
+  // Extract customer prefix from filenames (e.g., "PL_DXB191_..." -> "PL_DXB")
+  const extractCustomerPrefix = (filenames) => {
+    if (!filenames || filenames.length === 0) return null;
+    
+    // Take the first filename and extract prefix
+    const firstFile = filenames[0];
+    // Match pattern: starts with text, followed by underscore or hyphen
+    const match = firstFile.match(/^([A-Z]+[_-][A-Z0-9]+)/);
+    if (match) {
+      return match[1].replace('-', '_').substring(0, 20);
+    }
+    return null;
+  };
+
   // Submit jobs
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,6 +150,12 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
 
     if (selectedFiles.length === 0) {
       setError('Please select at least one file');
+      return;
+    }
+
+    const descError = validateDescription(batchDescription);
+    if (descError) {
+      setError(descError);
       return;
     }
 
@@ -135,20 +178,31 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
         })
       );
 
+      // Extract customer prefix for batch grouping
+      const customerPrefix = extractCustomerPrefix(selectedFiles.map(f => f.name));
+
       // Use batch endpoint if multiple files, otherwise use single endpoint
       const endpoint = selectedFiles.length > 1 ? '/jobs/batch' : '/jobs';
       const payload = selectedFiles.length > 1
-        ? { pipeline_id: selectedPipeline, files: filesData }
-        : filesData[0];
+        ? { 
+            pipeline_id: selectedPipeline, 
+            files: filesData,
+            batch_description: batchDescription || undefined,
+            customer_prefix: customerPrefix,
+          }
+        : {
+            pipeline_id: selectedPipeline,
+            ...filesData[0],
+            batch_description: batchDescription || undefined,
+            customer_prefix: customerPrefix,
+          };
 
       const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}${endpoint}`;
       
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: selectedFiles.length > 1
-          ? JSON.stringify({ pipeline_id: selectedPipeline, files: filesData })
-          : JSON.stringify({ pipeline_id: selectedPipeline, ...filesData[0] }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -159,6 +213,7 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
 
       // Clear selection
       setSelectedFiles([]);
+      setBatchDescription('');
       setUploadProgress({});
 
       // Notify parent component
@@ -182,12 +237,13 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
       <form onSubmit={handleSubmit}>
         {/* Pipeline Selection */}
         <div className="form-group">
-          <label htmlFor="pipeline">Select Pipeline:</label>
+          <label htmlFor="pipeline">Select Pipeline *</label>
           <select
             id="pipeline"
             value={selectedPipeline}
             onChange={(e) => setSelectedPipeline(e.target.value)}
             disabled={isLoading}
+            required
           >
             <option value="">-- Choose a pipeline --</option>
             {pipelines.map(pipeline => (
@@ -196,6 +252,27 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Batch Description (Optional) */}
+        <div className="form-group">
+          <label htmlFor="batch-description">Batch Description (optional)</label>
+          <input
+            id="batch-description"
+            type="text"
+            value={batchDescription}
+            onChange={handleDescriptionChange}
+            placeholder="e.g., 3-view Render, Hero Images, Social Media"
+            maxLength={MAX_DESCRIPTION_LENGTH}
+            disabled={isLoading}
+          />
+          <small>
+            Max {MAX_DESCRIPTION_LENGTH} characters (alphanumeric, hyphens, underscores)
+            {batchDescription.length > 0 && ` - ${batchDescription.length}/${MAX_DESCRIPTION_LENGTH}`}
+          </small>
+          <small className="info-text">
+            If left blank, will auto-generate as "{selectedFiles.length}-file_Render"
+          </small>
         </div>
 
         {/* Drag-Drop Zone */}
