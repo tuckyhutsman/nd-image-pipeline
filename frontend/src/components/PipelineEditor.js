@@ -185,7 +185,8 @@ const PRESET_TEMPLATES = {
   },
 };
 
-function PipelineEditor() {
+// ISSUE #1 FIX: Accept onPipelineSaved callback from parent
+function PipelineEditor({ onPipelineSaved }) {
   const [pipelines, setPipelines] = useState([]);
   const [mode, setMode] = useState('list');
   const [editingId, setEditingId] = useState(null);
@@ -292,10 +293,10 @@ function PipelineEditor() {
       
       setTimeout(() => setSuccess(''), 1500);
       
-      // FIX #2: Refresh page after 2 seconds so pipelines appear in job submit dropdown
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // ISSUE #1 FIX: Call parent callback instead of page reload to preserve tab state
+      if (onPipelineSaved) {
+        setTimeout(() => onPipelineSaved(), 1800);
+      }
     } catch (err) {
       setError('Error saving pipeline: ' + err.message);
     } finally {

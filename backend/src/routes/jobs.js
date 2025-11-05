@@ -38,16 +38,57 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Helper: Map format type to file extension
+const getExtensionForFormat = (formatType) => {
+  const extensionMap = {
+    'png': '.png',
+    'png8': '.png',
+    'jpeg': '.jpg',
+    'jpg': '.jpg',
+    'webp': '.webp',
+    'tiff': '.tiff',
+    'tif': '.tiff',
+  };
+  return extensionMap[formatType] || '.jpg';
+};
+
+// Helper: Generate proper output filename
+// ISSUE #2 FIX: Format filename as {input_base}{suffix}.{extension}
+const generateProperFileName = (inputFile, suffix, format) => {
+  // Remove extension from input filename
+  const inputBase = inputFile.replace(/\.[^.]+$/, '');
+  // Get extension for format
+  const ext = getExtensionForFormat(format);
+  // Construct: basename + suffix + extension
+  return `${inputBase}${suffix}${ext}`;
+};
+
 // GET /api/jobs/:id/download - Download job outputs as ZIP or single file
 // FIX #5: Excludes input_* files from downloads
+// ISSUE #2 FIX: Proper file naming with input name + pipeline suffix + format extension
 router.get('/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
-    const job = await global.db.query('SELECT * FROM jobs WHERE id = $1', [id]);
+    const jobResult = await global.db.query('SELECT * FROM jobs WHERE id = $1', [id]);
     
-    if (job.rows.length === 0) {
+    if (jobResult.rows.length === 0) {
       return res.status(404).json({ error: 'Job not found' });
     }
+
+    const job = jobResult.rows[0];
+    const inputFileName = job.file_name; // e.g., "photo.png"
+    
+    // Get pipeline config to extract suffix and format
+    const pipelineResult = await global.db.query(
+      'SELECT config FROM pipelines WHERE id = $1',
+      [job.pipeline_id]
+    );
+    
+    const pipelineConfig = pipelineResult.rows.length > 0 
+      ? (typeof pipelineResult.rows[0].config === 'string' 
+        ? JSON.parse(pipelineResult.rows[0].config) 
+        : pipelineResult.rows[0].config)
+      : {};
 
     const outputDir = path.join(OUTPUT_PATH, id);
     
@@ -60,14 +101,20 @@ router.get('/:id/download', async (req, res) => {
     }
 
     if (outputFiles.length === 1) {
-      // Single file - download directly
-      const filename = outputFiles[0];
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      // Single file - download directly with proper name
+      const format = pipelineConfig?.format?.type || 'jpeg';
+      const suffix = pipelineConfig?.suffix || '';
+      const properFileName = generateProperFileName(inputFileName, suffix, format);
+      
+      res.setHeader('Content-Disposition', `attachment; filename="${properFileName}"`);
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.sendFile(path.join(outputDir, filename));
+      res.sendFile(path.join(outputDir, outputFiles[0]));
     } else {
-      // Multiple files - create ZIP
+      // Multiple files - create ZIP with proper individual names
+      const format = pipelineConfig?.format?.type || 'jpeg';
+      const suffix = pipelineConfig?.suffix || '';
       const zipName = `job-${id.substring(0, 8)}.zip`;
+      
       res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
       res.setHeader('Content-Type', 'application/zip');
       
@@ -75,7 +122,9 @@ router.get('/:id/download', async (req, res) => {
       archive.pipe(res);
       
       outputFiles.forEach(file => {
-        archive.file(path.join(outputDir, file), { name: file });
+        // For each file, use proper naming
+        const properFileName = generateProperFileName(inputFileName, suffix, format);
+        archive.file(path.join(outputDir, file), { name: properFileName });
       });
       
       await archive.finalize();

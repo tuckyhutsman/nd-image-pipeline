@@ -13,6 +13,7 @@ function App() {
   const [pipelines, setPipelines] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [message, setMessage] = useState('');
+  const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
 
   React.useEffect(() => {
     fetchPipelines();
@@ -37,6 +38,15 @@ function App() {
     } catch (err) {
       console.error('Error fetching jobs:', err);
     }
+  };
+
+  // ISSUE #1 FIX: Handle pipeline save without page reload
+  const handlePipelineSaved = () => {
+    setMessage('✓ Pipeline saved successfully!');
+    setTimeout(() => setMessage(''), 3000);
+    fetchPipelines();
+    // Trigger refresh key to update PipelineEditor without page reload
+    setPipelineRefreshKey(prev => prev + 1);
   };
 
   const handleJobSubmitted = (jobId) => {
@@ -65,7 +75,7 @@ function App() {
 
         {activeTab === 'submit' && <JobSubmit pipelines={pipelines} onJobSubmitted={handleJobSubmitted} />}
         {activeTab === 'jobs' && <JobList jobs={jobs} onRefresh={fetchJobs} />}
-        {activeTab === 'pipelines' && <PipelineEditor />}
+        {activeTab === 'pipelines' && <PipelineEditor key={pipelineRefreshKey} onPipelineSaved={handlePipelineSaved} />}
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import './JobList.css';
 const JobList = ({ jobs, onRefresh }) => {
   const [downloadingJobs, setDownloadingJobs] = useState(new Set());
   const [jobsData, setJobsData] = useState(jobs);
+  // ISSUE #3 FIX: Track which job details modal is open
+  const [selectedJobId, setSelectedJobId] = useState(null);
 
   useEffect(() => {
     setJobsData(jobs);
@@ -81,6 +83,9 @@ const JobList = ({ jobs, onRefresh }) => {
     return statusMap[status] || 'status-unknown';
   };
 
+  // ISSUE #3 FIX: Find selected job for modal
+  const selectedJob = selectedJobId ? jobsData.find(job => job.id === selectedJobId) : null;
+
   if (!jobsData || jobsData.length === 0) {
     return (
       <div className="job-list-container">
@@ -154,12 +159,10 @@ const JobList = ({ jobs, onRefresh }) => {
                       Error: {job.error_message?.substring(0, 30)}...
                     </span>
                   )}
+                  {/* ISSUE #3 FIX: Details button now shows modal */}
                   <button
                     className="details-btn"
-                    onClick={() => {
-                      // Could expand to show more details
-                      console.log('Job details:', job);
-                    }}
+                    onClick={() => setSelectedJobId(job.id)}
                     title="View job details"
                   >
                     →
@@ -170,6 +173,70 @@ const JobList = ({ jobs, onRefresh }) => {
           </tbody>
         </table>
       </div>
+
+      {/* ISSUE #3 FIX: Job Details Modal */}
+      {selectedJob && (
+        <div className="modal-overlay" onClick={() => setSelectedJobId(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Job Details</h3>
+              <button className="modal-close" onClick={() => setSelectedJobId(null)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="detail-group">
+                <label>Job ID</label>
+                <value className="monospace">{selectedJob.id}</value>
+              </div>
+
+              <div className="detail-group">
+                <label>File Name</label>
+                <value>{selectedJob.file_name}</value>
+              </div>
+
+              <div className="detail-group">
+                <label>Pipeline ID</label>
+                <value>{selectedJob.pipeline_id}</value>
+              </div>
+
+              <div className="detail-group">
+                <label>Status</label>
+                <value className={`status-badge ${getStatusClass(selectedJob.status)}`}>
+                  {selectedJob.status.toUpperCase()}
+                </value>
+              </div>
+
+              <div className="detail-group">
+                <label>Created</label>
+                <value>{formatDate(selectedJob.created_at)}</value>
+              </div>
+
+              <div className="detail-group">
+                <label>Updated</label>
+                <value>{formatDate(selectedJob.updated_at)}</value>
+              </div>
+
+              <div className="detail-group">
+                <label>Duration</label>
+                <value>{formatDuration(selectedJob.created_at, selectedJob.updated_at)}</value>
+              </div>
+
+              {selectedJob.error_message && (
+                <div className="detail-group error">
+                  <label>Error</label>
+                  <value>{selectedJob.error_message}</value>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setSelectedJobId(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
