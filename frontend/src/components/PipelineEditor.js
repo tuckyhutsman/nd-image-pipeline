@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './PipelineEditor.css';
 
@@ -82,7 +82,7 @@ const PRESET_TEMPLATES = {
     format: {
       type: 'png',
       quality: 85,
-      compression: 6,
+      compression: 66,
     },
     color: {
       changeICC: 'convert',
@@ -111,7 +111,7 @@ const PRESET_TEMPLATES = {
     format: {
       type: 'jpeg',
       quality: 80,
-      compression: null,
+      compression: 50,
     },
     color: {
       changeICC: 'convert',
@@ -140,7 +140,7 @@ const PRESET_TEMPLATES = {
     format: {
       type: 'jpeg',
       quality: 85,
-      compression: null,
+      compression: 50,
     },
     color: {
       changeICC: 'convert',
@@ -169,7 +169,7 @@ const PRESET_TEMPLATES = {
     format: {
       type: 'png',
       quality: 100,
-      compression: 9,
+      compression: 100,
     },
     color: {
       changeICC: 'convert',
@@ -187,14 +187,13 @@ const PRESET_TEMPLATES = {
 
 function PipelineEditor() {
   const [pipelines, setPipelines] = useState([]);
-  const [mode, setMode] = useState('list'); // 'list', 'create-single', 'create-multi', 'edit'
+  const [mode, setMode] = useState('list');
   const [editingId, setEditingId] = useState(null);
   const [pipelineType, setPipelineType] = useState(PIPELINE_TYPES.SINGLE_ASSET);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form state for single-asset pipeline
   const [singleAssetForm, setSingleAssetForm] = useState({
     name: '',
     description: '',
@@ -209,7 +208,7 @@ function PipelineEditor() {
     format: {
       type: 'png',
       quality: 85,
-      compression: 6,
+      compression: 66,
     },
     color: {
       changeICC: 'preserve',
@@ -224,11 +223,10 @@ function PipelineEditor() {
     resizeFilter: 'Lanczos',
   });
 
-  // Form state for multi-asset pipeline
   const [multiAssetForm, setMultiAssetForm] = useState({
     name: '',
     description: '',
-    components: [], // References to single-asset pipelines
+    components: [],
     outputArrangement: 'flat',
   });
 
@@ -279,7 +277,7 @@ function PipelineEditor() {
         description: '',
         suffix: '',
         sizing: { aspectRatio: null, width: 1000, height: null, dpi: 72, resampleIfNeeded: false },
-        format: { type: 'png', quality: 85, compression: 6 },
+        format: { type: 'png', quality: 85, compression: 66 },
         color: { changeICC: 'preserve', destICC: 'sRGB', gammaCorrect: true },
         transparency: { preserve: true, background: '#FFFFFF' },
         iccHandling: 'embed',
@@ -289,7 +287,10 @@ function PipelineEditor() {
       setEditingId(null);
       setMode('list');
       fetchPipelines();
-      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setSuccess(''), 1500);
+      
+      // Refresh page to update pipeline dropdowns in other components (Q4)
+      setTimeout(() => window.location.reload(), 1800);
     } catch (err) {
       setError('Error saving pipeline: ' + err.message);
     } finally {
@@ -551,113 +552,113 @@ function PipelineEditor() {
           </div>
 
           <div className="form-section">
-          <h3>Format & Quality</h3>
+            <h3>Format & Quality</h3>
 
-          <div className="form-group">
-            <label>Format</label>
-            <select
-              value={singleAssetForm.format.type}
-              onChange={(e) => setSingleAssetForm({
-                ...singleAssetForm,
-                format: {...singleAssetForm.format, type: e.target.value}
-              })}
-            >
-              {IMAGE_FORMATS.map(fmt => (
-                <option key={fmt.value} value={fmt.value}>{fmt.label}</option>
-              ))}
-            </select>
+            <div className="form-group">
+              <label>Format</label>
+              <select
+                value={singleAssetForm.format.type}
+                onChange={(e) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, type: e.target.value}
+                })}
+              >
+                {IMAGE_FORMATS.map(fmt => (
+                  <option key={fmt.value} value={fmt.value}>{fmt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quality (Lossy) - shown for JPEG and WebP */}
+            {['jpeg', 'webp'].includes(singleAssetForm.format.type) && (
+              <div className="form-group">
+                <div className="slider-header">
+                  <label>Quality (Lossy) — 0-100</label>
+                  <span className="slider-value">{singleAssetForm.format.quality}</span>
+                </div>
+                <input
+                  type="range"
+                  value={singleAssetForm.format.quality}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    format: {...singleAssetForm.format, quality: parseInt(e.target.value)}
+                  })}
+                  min="0"
+                  max="100"
+                  className="quality-slider"
+                />
+                <small>Higher = better quality, larger file. Controls lossy compression (detail loss).</small>
+              </div>
+            )}
+
+            {/* Compression (Lossless) - shown for PNG and PNG8 */}
+            {['png', 'png8'].includes(singleAssetForm.format.type) && (
+              <div className="form-group">
+                <div className="slider-header">
+                  <label>Compression (Lossless) — 0-100</label>
+                  <span className="slider-value">{singleAssetForm.format.compression}</span>
+                </div>
+                <input
+                  type="range"
+                  value={singleAssetForm.format.compression}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
+                  })}
+                  min="0"
+                  max="100"
+                  className="compression-slider"
+                />
+                <small>Higher = smaller file, slower processing. Controls lossless compression (no detail loss).</small>
+              </div>
+            )}
+
+            {/* WebP supports both */}
+            {singleAssetForm.format.type === 'webp' && (
+              <div className="form-group">
+                <div className="slider-header">
+                  <label>Lossless Compression — 0-100</label>
+                  <span className="slider-value">{singleAssetForm.format.compression}</span>
+                </div>
+                <input
+                  type="range"
+                  value={singleAssetForm.format.compression}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
+                  })}
+                  min="0"
+                  max="100"
+                  className="compression-slider"
+                />
+                <small>Additional lossless optimization (WebP already has lossy Quality above).</small>
+              </div>
+            )}
+
+            {/* Format info box */}
+            <div className="format-info-box">
+              {singleAssetForm.format.type === 'png' && (
+                <div>
+                  <strong>📌 PNG 24-bit</strong> — Lossless. Perfect for graphics with transparency. Compression slider controls file size.
+                </div>
+              )}
+              {singleAssetForm.format.type === 'png8' && (
+                <div>
+                  <strong>📌 PNG 8-bit</strong> — Indexed palette (max 256 colors). Smaller files. Great for simple graphics with transparency.
+                </div>
+              )}
+              {singleAssetForm.format.type === 'jpeg' && (
+                <div>
+                  <strong>📌 JPEG</strong> — Lossy compression (optimized with mozjpeg). No transparency. Quality slider controls detail preservation.
+                </div>
+              )}
+              {singleAssetForm.format.type === 'webp' && (
+                <div>
+                  <strong>📌 WebP</strong> — Modern format supporting both lossy and lossless. Best compatibility with modern browsers.
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* Quality (Lossy) - shown for JPEG and WebP */}
-          {['jpeg', 'webp'].includes(singleAssetForm.format.type) && (
-            <div className="form-group">
-              <div className="slider-header">
-                <label>Quality (Lossy) — 0-100</label>
-                <span className="slider-value">{singleAssetForm.format.quality}</span>
-              </div>
-              <input
-                type="range"
-                value={singleAssetForm.format.quality}
-                onChange={(e) => setSingleAssetForm({
-                  ...singleAssetForm,
-                  format: {...singleAssetForm.format, quality: parseInt(e.target.value)}
-                })}
-                min="0"
-                max="100"
-                className="quality-slider"
-              />
-              <small>Higher = better quality, larger file. Controls lossy compression (detail loss).</small>
-            </div>
-          )}
-
-          {/* Compression (Lossless) - shown for PNG and PNG8 */}
-          {['png', 'png8'].includes(singleAssetForm.format.type) && (
-            <div className="form-group">
-              <div className="slider-header">
-                <label>Compression (Lossless) — 0-100</label>
-                <span className="slider-value">{singleAssetForm.format.compression}</span>
-              </div>
-              <input
-                type="range"
-                value={singleAssetForm.format.compression}
-                onChange={(e) => setSingleAssetForm({
-                  ...singleAssetForm,
-                  format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
-                })}
-                min="0"
-                max="100"
-                className="compression-slider"
-              />
-              <small>Higher = smaller file, slower processing. Controls lossless compression (no detail loss).</small>
-            </div>
-          )}
-
-          {/* WebP supports both */}
-          {singleAssetForm.format.type === 'webp' && (
-            <div className="form-group">
-              <div className="slider-header">
-                <label>Lossless Compression — 0-100</label>
-                <span className="slider-value">{singleAssetForm.format.compression}</span>
-              </div>
-              <input
-                type="range"
-                value={singleAssetForm.format.compression}
-                onChange={(e) => setSingleAssetForm({
-                  ...singleAssetForm,
-                  format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
-                })}
-                min="0"
-                max="100"
-                className="compression-slider"
-              />
-              <small>Additional lossless optimization (WebP already has lossy Quality above).</small>
-            </div>
-          )}
-
-  {/* Format info box */}
-  <div className="format-info-box">
-    {singleAssetForm.format.type === 'png' && (
-      <div>
-        <strong>📌 PNG 24-bit</strong> — Lossless. Perfect for graphics with transparency. Compression slider controls file size.
-      </div>
-    )}
-    {singleAssetForm.format.type === 'png8' && (
-      <div>
-        <strong>📌 PNG 8-bit</strong> — Indexed palette (max 256 colors). Smaller files. Great for simple graphics with transparency.
-      </div>
-    )}
-    {singleAssetForm.format.type === 'jpeg' && (
-      <div>
-        <strong>📌 JPEG</strong> — Lossy compression (optimized with mozjpeg). No transparency. Quality slider controls detail preservation.
-      </div>
-    )}
-    {singleAssetForm.format.type === 'webp' && (
-      <div>
-        <strong>📌 WebP</strong> — Modern format supporting both lossy and lossless. Best compatibility with modern browsers.
-      </div>
-    )}
-  </div>
-</div>
 
           <div className="form-section">
             <h3>Color & ICC Profile</h3>
@@ -729,37 +730,96 @@ function PipelineEditor() {
           <div className="form-section">
             <h3>Transparency & Background</h3>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={singleAssetForm.transparency.preserve}
-                    onChange={(e) => setSingleAssetForm({
-                      ...singleAssetForm,
-                      transparency: {...singleAssetForm.transparency, preserve: e.target.checked}
-                    })}
-                  />
-                  Preserve Transparency
-                </label>
-              </div>
-
-              {!singleAssetForm.transparency.preserve && (
+            {/* Only show transparency controls for formats that support it (Q2) */}
+            {['png', 'png8', 'webp'].includes(singleAssetForm.format.type) ? (
+              <>
                 <div className="form-group">
-                  <label>Background Color</label>
-                  <input
-                    type="text"
-                    value={singleAssetForm.transparency.background}
-                    onChange={(e) => setSingleAssetForm({
-                      ...singleAssetForm,
-                      transparency: {...singleAssetForm.transparency, background: e.target.value}
-                    })}
-                    placeholder="#FFFFFF"
-                  />
-                  <small>Hex color in active ICC profile</small>
+                  <label className="toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={singleAssetForm.transparency.preserve}
+                      onChange={(e) => setSingleAssetForm({
+                        ...singleAssetForm,
+                        transparency: {...singleAssetForm.transparency, preserve: e.target.checked}
+                      })}
+                    />
+                    <span className="toggle-text">
+                      {singleAssetForm.transparency.preserve 
+                        ? '✓ Preserve transparency from input file' 
+                        : '○ Replace transparency with background color'}
+                    </span>
+                  </label>
                 </div>
-              )}
-            </div>
+
+                {!singleAssetForm.transparency.preserve && (
+                  <div className="form-group">
+                    <label>Background Color (replaces transparent areas)</label>
+                    <div className="color-picker-group">
+                      <input
+                        type="color"
+                        value={singleAssetForm.transparency.background}
+                        onChange={(e) => setSingleAssetForm({
+                          ...singleAssetForm,
+                          transparency: {...singleAssetForm.transparency, background: e.target.value}
+                        })}
+                        className="color-picker"
+                      />
+                      <input
+                        type="text"
+                        value={singleAssetForm.transparency.background}
+                        onChange={(e) => setSingleAssetForm({
+                          ...singleAssetForm,
+                          transparency: {...singleAssetForm.transparency, background: e.target.value}
+                        })}
+                        placeholder="#FFFFFF"
+                        className="color-text"
+                      />
+                    </div>
+                    <small>Hex color in active ICC profile. Default: #FFFFFF (white)</small>
+                  </div>
+                )}
+
+                <div className="transparency-info">
+                  {singleAssetForm.transparency.preserve 
+                    ? '✓ Transparent areas will be preserved in the output file'
+                    : `○ Transparent areas will be replaced with ${singleAssetForm.transparency.background}`}
+                </div>
+              </>
+            ) : (
+              <div className="format-note">
+                <strong>ℹ️ {singleAssetForm.format.type === 'jpeg' ? 'JPEG' : singleAssetForm.format.type.toUpperCase()} does not support transparency.</strong>
+                {singleAssetForm.format.type === 'jpeg' && (
+                  <>
+                    <p>Any transparent areas in the input will be replaced with a solid background color.</p>
+                    <div className="form-group">
+                      <label>Background Color (default for transparent areas)</label>
+                      <div className="color-picker-group">
+                        <input
+                          type="color"
+                          value={singleAssetForm.transparency.background}
+                          onChange={(e) => setSingleAssetForm({
+                            ...singleAssetForm,
+                            transparency: {...singleAssetForm.transparency, background: e.target.value}
+                          })}
+                          className="color-picker"
+                        />
+                        <input
+                          type="text"
+                          value={singleAssetForm.transparency.background}
+                          onChange={(e) => setSingleAssetForm({
+                            ...singleAssetForm,
+                            transparency: {...singleAssetForm.transparency, background: e.target.value}
+                          })}
+                          placeholder="#FFFFFF"
+                          className="color-text"
+                        />
+                      </div>
+                      <small>Hex color. Default: #FFFFFF (white)</small>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="form-actions">
@@ -775,7 +835,7 @@ function PipelineEditor() {
     );
   }
 
-  // Render multi-asset editor (placeholder for now)
+  // Render multi-asset editor
   if (mode === 'create-multi') {
     return (
       <div className="pipeline-editor">
@@ -835,7 +895,6 @@ function PipelineEditor() {
           <div className="form-section">
             <h3>Pipeline Components</h3>
             <p className="info">Multi-asset pipelines compose multiple single-asset pipelines. Each input file generates one output per component.</p>
-            {/* Component selection UI coming soon */}
             <p className="placeholder">Component selection UI - coming in next iteration</p>
           </div>
 
