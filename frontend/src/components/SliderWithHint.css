@@ -1,108 +1,92 @@
 /* frontend/src/components/SliderWithHint.css */
-/* Enhanced slider with dynamic algorithm hints and color feedback */
-/* Color scheme: Green (fast) → Blue (balanced) → Orange → Red (slow/intensive) */
+/* Clean slider with continuous color feedback matching design mockups */
 
 .slider-with-hint {
   margin-bottom: 1.5rem;
   padding: 0.75rem 0;
 }
 
-.slider-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-  gap: 1rem;
+/* Label Row */
+.slider-label-row {
+  margin-bottom: 0.5rem;
 }
 
 .slider-label {
   font-weight: 600;
   color: #333;
   font-size: 0.95rem;
-  margin: 0;
+  display: block;
 }
 
-.slider-value-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 50px;
-  height: 40px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  padding: 0 0.75rem;
-}
-
-.slider-value {
-  font-size: 1.25rem;
-  font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  transition: color 0.1s ease;
-}
-
-/* Slider Input Styling */
+/* Slider Container */
 .slider-container {
   margin: 1rem 0;
 }
 
+/* Slider Input - Plain gray track, colored thumb only */
 .slider-input {
   width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  background: linear-gradient(to right, #00AA44 0%, #0066CC 50%, #FF3333 100%);
+  height: 6px;
+  border-radius: 3px;
+  background: #e0e0e0; /* Plain gray track */
   outline: none;
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
-  transition: box-shadow 0.2s ease;
+  transition: background 0.2s ease;
 }
 
-/* Thumb styling - cross-browser */
+.slider-input:hover {
+  background: #d0d0d0;
+}
+
+/* Slider Thumb - Changes color based on position */
 .slider-input::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: white;
-  border: 3px solid currentColor;
+  background: var(--thumb-color, #0066CC);
+  border: none;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
 }
 
 .slider-input::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slider-input::-webkit-slider-thumb:active {
+  transform: scale(1.05);
 }
 
 .slider-input::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: white;
-  border: 3px solid currentColor;
+  background: var(--thumb-color, #0066CC);
+  border: none;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
 }
 
 .slider-input::-moz-range-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Track styling */
+.slider-input::-moz-range-thumb:active {
+  transform: scale(1.05);
+}
+
+/* Remove Firefox track styling */
 .slider-input::-moz-range-track {
   background: transparent;
   border: none;
-}
-
-.slider-input::-moz-range-progress {
-  background: linear-gradient(to right, #00AA44 0%, #0066CC 50%, #FF3333 100%);
-  height: 8px;
-  border-radius: 4px;
 }
 
 /* Focus state */
@@ -111,59 +95,77 @@
 }
 
 .slider-input:focus-visible {
-  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+  border-radius: 3px;
 }
 
-/* Hint Display */
-.slider-hint {
+/* Hint Row: Algorithm + Badge (LEFT) | Value Box (RIGHT) */
+.slider-hint-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 0.75rem;
   gap: 1rem;
-  font-size: 0.85rem;
 }
 
+/* Left side: Algorithm name, label, and badge inline */
 .hint-left {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
+/* Algorithm Name - Bold monospace, matches value box style */
 .hint-algorithm {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   transition: color 0.1s ease;
 }
 
+/* Algorithm Label - Regular description */
 .hint-label {
   color: #666;
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: color 0.1s ease;
+  font-size: 0.85rem;
+  font-weight: 400;
 }
 
-/* Tradeoff Badge */
-.hint-tradeoff {
+/* Performance Badge - Outlined span */
+.hint-badge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.4rem 0.8rem;
-  border-radius: 12px;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
   border: 1.5px solid;
-  transition: all 0.1s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.hint-badge {
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: all 0.1s ease;
+}
+
+/* Value Box (RIGHT) - Colored background with white number */
+.slider-value-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  height: 40px;
+  border-radius: 8px;
+  padding: 0 0.75rem;
+  transition: background-color 0.1s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.slider-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+  color: #FFFFFF; /* Always white */
+  letter-spacing: 0.02em;
 }
 
 /* Description Text */
@@ -178,59 +180,32 @@
 
 /* Responsive */
 @media (max-width: 600px) {
-  .slider-header {
+  .slider-hint-row {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .slider-hint {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .hint-tradeoff {
-    align-self: flex-start;
-  }
-
-  .slider-value-box {
-    min-width: 45px;
-    height: 35px;
-    font-size: 0.95rem;
-  }
-
-  .slider-value {
-    font-size: 1.1rem;
-  }
-}
-
-/* Animation for color transitions */
-@keyframes slideColorPulse {
-  0% {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  }
-  50% {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
-  100% {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  }
-}
-
-.slider-input:active::-webkit-slider-thumb,
-.slider-input:active::-moz-range-thumb {
-  animation: slideColorPulse 0.3s ease-out;
-}
-
-/* Dark mode support (optional) */
-@media (prefers-color-scheme: dark) {
-  .slider-value-box {
-    background: #2a2a2a;
-    border-color: #444;
-  }
-
-  .slider-label,
   .hint-left {
+    width: 100%;
+  }
+
+  .slider-value-box {
+    align-self: flex-end;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .slider-label {
     color: #e0e0e0;
+  }
+
+  .slider-input {
+    background: #3a3a3a;
+  }
+
+  .slider-input:hover {
+    background: #4a4a4a;
   }
 
   .hint-label {
@@ -239,5 +214,9 @@
 
   .slider-description {
     color: #666;
+  }
+
+  .slider-value-box {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 }

@@ -1,25 +1,18 @@
 // frontend/src/components/SliderWithHint.js
-// Reusable slider component with dynamic algorithm hints and color feedback
+// Clean slider with continuous color feedback - all elements change color together
 
 import React from 'react';
-import { getSliderHint, interpolateSliderColor } from '../utils/sliderHints';
+import { getSliderHint } from '../utils/sliderHints';
 import './SliderWithHint.css';
 
 /**
  * SliderWithHint Component
  * 
- * Displays a slider with:
- * - Dynamic color feedback (Green → Blue → Orange → Red)
- * - Algorithm name and settings
- * - Performance tradeoff indicator (fastest/largest ↔ slowest/smallest)
- * - Numeric display in rounded box
- * 
- * @param {object} props
- * @param {number} props.value - Current value (0-100)
- * @param {function} props.onChange - Callback when value changes
- * @param {string} props.label - Slider label
- * @param {object} props.hintConfig - Hint configuration (see sliderHints.js)
- * @param {string} props.className - Additional CSS class
+ * Clean slider design with continuous color feedback:
+ * - Slider thumb, value box, and hint text all change color together
+ * - Color interpolates smoothly between algorithm breakpoints
+ * - Algorithm name in bold monospace
+ * - Performance badge with outline
  */
 const SliderWithHint = ({
   value,
@@ -33,21 +26,18 @@ const SliderWithHint = ({
   }
 
   const currentHint = getSliderHint(value, hintConfig);
-  const color = interpolateSliderColor(value, hintConfig);
+  
+  // Interpolate color between breakpoints for smooth transitions
+  const color = interpolateColor(value, hintConfig);
 
   return (
     <div className={`slider-with-hint ${className}`}>
-      {/* Header: Label + Numeric Display */}
-      <div className="slider-header">
+      {/* Label */}
+      <div className="slider-label-row">
         <label className="slider-label">{label}</label>
-        <div className="slider-value-box">
-          <span className="slider-value" style={{ color }}>
-            {Math.round(value)}
-          </span>
-        </div>
       </div>
 
-      {/* Main Slider */}
+      {/* Slider */}
       <div className="slider-container">
         <input
           type="range"
@@ -57,46 +47,108 @@ const SliderWithHint = ({
           onChange={(e) => onChange(parseInt(e.target.value, 10))}
           className="slider-input"
           style={{
-            background: `linear-gradient(to right, #00AA44 0%, #0066CC 50%, #FF3333 100%)`,
+            '--thumb-color': color,
           }}
         />
       </div>
 
-      {/* Hint Display: Algorithm + Tradeoff */}
-      <div className="slider-hint">
+      {/* Hint Display: Algorithm + Badge (LEFT) | Value Box (RIGHT) */}
+      <div className="slider-hint-row">
         <div className="hint-left">
           <span
             className="hint-algorithm"
-            style={{
-              color,
-              fontWeight: currentHint.weight === 'semibold' ? '600' : '400',
-              fontFamily: 'ui-monospace, Courier, monospace',
-            }}
+            style={{ color }}
           >
             {currentHint.algorithm}
           </span>
           <span className="hint-label">{currentHint.label}</span>
+          <span
+            className="hint-badge"
+            style={{
+              color,
+              borderColor: color,
+            }}
+          >
+            {currentHint.sublabel}
+          </span>
         </div>
         <div
-          className="hint-tradeoff"
-          style={{
-            color,
-            backgroundColor: `${color}20`, // 20% opacity
-            borderColor: color,
-          }}
+          className="slider-value-box"
+          style={{ backgroundColor: color }}
         >
-          <span className="hint-badge">{currentHint.sublabel}</span>
+          <span className="slider-value">{Math.round(value)}</span>
         </div>
       </div>
 
       {/* Description */}
       <small className="slider-description">
         {label.includes('Compression') 
-          ? 'Higher = more intensive processing, slower but smaller files.'
+          ? 'Higher = smaller file, slower processing. Lossless compression (no detail loss).'
           : 'Controls detail preservation and visual quality.'}
       </small>
     </div>
   );
 };
+
+/**
+ * Interpolate color between range breakpoints for smooth transitions
+ */
+function interpolateColor(value, hintConfig) {
+  const { ranges } = hintConfig;
+  
+  // Find current range
+  const currentRange = ranges.find(r => value >= r.min && value <= r.max);
+  if (!currentRange) return ranges[0].color;
+  
+  // If at boundaries or single-color range, return exact color
+  if (ranges.length === 1 || value === currentRange.min || value === currentRange.max) {
+    return currentRange.color;
+  }
+  
+  // Find next range for interpolation
+  const currentIndex = ranges.findIndex(r => r === currentRange);
+  const nextRange = ranges[currentIndex + 1];
+  
+  // If no next range, return current color
+  if (!nextRange) return currentRange.color;
+  
+  // Calculate interpolation factor (0 to 1) within current range
+  const rangeSize = currentRange.max - currentRange.min;
+  const positionInRange = value - currentRange.min;
+  const factor = positionInRange / rangeSize;
+  
+  // Interpolate between current and next color
+  return lerpColor(currentRange.color, nextRange.color, factor);
+}
+
+/**
+ * Linear interpolation between two hex colors
+ */
+function lerpColor(color1, color2, factor) {
+  const c1 = hexToRgb(color1);
+  const c2 = hexToRgb(color2);
+  
+  const r = Math.round(c1.r + (c2.r - c1.r) * factor);
+  const g = Math.round(c1.g + (c2.g - c1.g) * factor);
+  const b = Math.round(c1.b + (c2.b - c1.b) * factor);
+  
+  return rgbToHex(r, g, b);
+}
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 0, b: 0 };
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map(x => {
+    const hex = x.toString(16);
+    return hex.length === 1 ? "0" + hex : hex;
+  }).join('');
+}
 
 export default SliderWithHint;
