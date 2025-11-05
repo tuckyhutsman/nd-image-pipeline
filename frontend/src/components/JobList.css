@@ -1,0 +1,314 @@
+.job-list-container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.job-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.job-list-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.refresh-btn {
+  padding: 0.5rem 1rem;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+/* Empty State */
+.empty-message {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #999;
+  font-size: 1.1rem;
+}
+
+/* Table Wrapper */
+.jobs-table-wrapper {
+  overflow-x: auto;
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.jobs-table thead {
+  background: #f5f5f5;
+  border-bottom: 2px solid #ddd;
+}
+
+.jobs-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.jobs-table tbody tr {
+  border-bottom: 1px solid #eee;
+  transition: background 0.1s;
+}
+
+.jobs-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.jobs-table td {
+  padding: 1rem;
+  color: #555;
+}
+
+/* Status-specific row styling */
+.job-row.status-completed {
+  --accent-color: #4caf50;
+}
+
+.job-row.status-failed {
+  --accent-color: #f44336;
+}
+
+.job-row.status-processing {
+  --accent-color: #2196f3;
+}
+
+.job-row.status-queued {
+  --accent-color: #ff9800;
+}
+
+/* File Name Cell */
+.file-name-cell {
+  max-width: 300px;
+  font-weight: 500;
+}
+
+.file-name-cell span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #0066cc;
+}
+
+/* Pipeline Cell */
+.pipeline-cell {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Status Cell */
+.status-cell {
+  text-align: center;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.status-failed {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-badge.status-processing {
+  background: #e3f2fd;
+  color: #1565c0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-badge.status-queued {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Created Cell */
+.created-cell {
+  font-size: 0.9rem;
+  color: #999;
+  white-space: nowrap;
+}
+
+/* Duration Cell */
+.duration-cell {
+  text-align: center;
+  font-weight: 600;
+  color: #666;
+}
+
+/* Actions Cell */
+.actions-cell {
+  text-align: right;
+  white-space: nowrap;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Download Button */
+.download-btn {
+  padding: 0.5rem 1rem;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.download-btn:hover:not(:disabled) {
+  background: #45a049;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.download-btn:disabled {
+  background: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.spinner-small {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error Info */
+.error-info {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* Details Button */
+.details-btn {
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  color: #0066cc;
+  border: 1px solid #0066cc;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.details-btn:hover {
+  background: #0066cc;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .job-list-container {
+    padding: 1rem;
+  }
+
+  .jobs-table {
+    font-size: 0.85rem;
+  }
+
+  .jobs-table th,
+  .jobs-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .file-name-cell {
+    max-width: 150px;
+  }
+
+  .actions-cell {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  /* Hide less important columns on mobile */
+  .pipeline-cell,
+  .created-cell {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .job-list-container {
+    padding: 0.75rem;
+  }
+
+  .jobs-table {
+    font-size: 0.75rem;
+  }
+
+  .jobs-table th,
+  .jobs-table td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .download-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .file-name-cell {
+    max-width: 100px;
+  }
+
+  .duration-cell {
+    display: none;
+  }
+}
