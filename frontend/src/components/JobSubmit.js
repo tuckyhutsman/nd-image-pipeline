@@ -126,7 +126,7 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
       );
 
       // Use batch endpoint if multiple files, otherwise use single endpoint
-      const endpoint = selectedFiles.length > 1 ? '/api/jobs/batch' : '/api/jobs';
+      const endpoint = selectedFiles.length > 1 ? '/jobs/batch' : '/jobs';
       const payload = selectedFiles.length > 1
         ? { pipeline_id: selectedPipeline, files: filesData }
         : filesData[0];

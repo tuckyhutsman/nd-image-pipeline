@@ -14,7 +14,7 @@ const JobList = ({ jobs, onRefresh }) => {
     try {
       setDownloadingJobs(prev => new Set(prev).add(jobId));
 
-      const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/jobs/${jobId}/download`;
+      const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/jobs/${jobId}/download`;
       
       const response = await fetch(url);
 
