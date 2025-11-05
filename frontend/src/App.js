@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import PipelineList from './components/PipelineList';
+import PipelineEditor from './components/PipelineEditor';
 import JobSubmit from './components/JobSubmit';
 import JobList from './components/JobList';
 import './App.css';
+import './components/PipelineEditor.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 
@@ -64,7 +65,7 @@ function App() {
 
         {activeTab === 'submit' && <JobSubmit pipelines={pipelines} onJobSubmitted={handleJobSubmitted} />}
         {activeTab === 'jobs' && <JobList jobs={jobs} onRefresh={fetchJobs} />}
-        {activeTab === 'pipelines' && <PipelineList pipelines={pipelines} onRefresh={fetchPipelines} />}
+        {activeTab === 'pipelines' && <PipelineEditor />}
       </div>
     </div>
   );

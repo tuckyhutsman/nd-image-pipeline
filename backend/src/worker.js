@@ -1,192 +1,405 @@
+// backend/src/worker.js
+
 const { Worker } = require('bullmq');
-const redis = require('redis');
-const { Pool } = require('pg');
 const sharp = require('sharp');
-const fs = require('fs');
+const fs = require('fs-extra');
 const path = require('path');
-require('dotenv').config();
+const db = require('./db');
 
-// Fix: Use correct host from environment
-const db = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST || 'postgres',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME,
-});
+const OUTPUT_PATH = '/tmp/pipeline-output';
 
-const OUTPUT_PATH = process.env.OUTPUT_PATH || '/tmp/pipeline-output';
+class ImagePipelineWorker {
+  constructor() {
+    this.worker = new Worker('image-jobs', this.processJob.bind(this), {
+      connection: {
+        host: process.env.REDIS_HOST || 'redis',
+        port: process.env.REDIS_PORT || 6379
+      },
+      settings: {
+        maxStalledCount: 2,
+        stalledInterval: 30000
+      }
+    });
 
-// Fix: Redis URL should use service name 'redis', not localhost
-const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
+    this.worker.on('completed', (job) => {
+      console.log(`Job ${job.id} completed`);
+    });
 
-// Create a simple pub/sub client for emitting updates
-const pubClient = redis.createClient({
-  url: REDIS_URL,
-});
-
-pubClient.connect().then(() => {
-  console.log('Pub client connected to Redis');
-}).catch(err => {
-  console.error('Failed to connect pub client:', err);
-});
-
-async function resizeImage(inputBuffer, outputSpec) {
-  try {
-    let image = sharp(inputBuffer);
-    const metadata = await image.metadata();
-
-    let width = outputSpec.width;
-    let height = outputSpec.height;
-    let resizeOptions = { fit: 'cover' };
-
-    if (outputSpec.fit === 'contain') {
-      resizeOptions = { fit: 'contain', background: { r: 255, g: 255, b: 255 } };
-    }
-
-    if (outputSpec.quality === 'professional') {
-      image = image.resize(width, height, {
-        ...resizeOptions,
-        kernel: 'lanczos3',
-        withoutEnlargement: false,
-      });
-    } else {
-      image = image.resize(width, height, resizeOptions);
-    }
-
-    const format = outputSpec.format || 'jpeg';
-    if (format === 'jpeg' || format === 'jpg') {
-      image = image.jpeg({ quality: outputSpec.quality || 85, progressive: true });
-    } else if (format === 'png') {
-      image = image.png({ quality: outputSpec.quality || 90 });
-    } else if (format === 'webp') {
-      image = image.webp({ quality: outputSpec.quality || 85 });
-    }
-
-    return await image.toBuffer();
-  } catch (err) {
-    console.error('Image resize error:', err);
-    throw err;
+    this.worker.on('failed', (job, err) => {
+      console.log(`Job ${job.id} failed: ${err.message}`);
+    });
   }
-}
 
-const worker = new Worker('image-processing', async (job) => {
-  const startTime = Date.now();
-  console.log(`Processing job ${job.id}...`);
+  async processJob(job) {
+    console.log(`Processing job ${job.id}...`);
+    
+    const jobData = job.data;
+    const jobId = job.id;
 
-  try {
-    const { job_id, pipeline_id, file_name, file_data } = job.data;
+    try {
+      // STAGE 0: Validate & Normalize Input
+      console.log('Stage 0: Validating input...');
+      const validation = await this.validateAndNormalize(jobData);
+      
+      if (validation.status === 'rejected') {
+        await this.updateJobStatus(jobId, 'failed', {
+          stage: 'validation',
+          errors: validation.errors
+        });
+        return;
+      }
 
-    // Update job status to processing
-    await db.query(
-      `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2`,
-      ['processing', job_id]
-    );
+      // Update job with validation results
+      await db.query(
+        'UPDATE jobs SET stage_0_validation = $1 WHERE id = $2',
+        [JSON.stringify(validation), jobId]
+      );
 
-    // Publish update to Redis (for real-time monitoring)
-    await pubClient.publish('job-updates', JSON.stringify({
-      job_id,
-      status: 'processing',
-      started_at: new Date().toISOString(),
-    }));
+      // Parse filename for Dropbox routing (future)
+      const parsedFilename = this.parseFilename(jobData.file_name);
 
+      // Fetch Multi-Asset Pipeline
+      const pipelineResult = await db.query(
+        'SELECT components FROM multi_asset_pipelines WHERE id = $1',
+        [jobData.pipeline_id]
+      );
+
+      if (pipelineResult.rows.length === 0) {
+        throw new Error('Pipeline not found');
+      }
+
+      const pipelineComponents = pipelineResult.rows[0].components;
+
+      // STAGE 1: Process each component in parallel
+      console.log('Stage 1: Processing through pipeline components...');
+      const outputDir = path.join(OUTPUT_PATH, jobId);
+      await fs.ensureDir(outputDir);
+
+      const assetPromises = pipelineComponents.map((component, index) =>
+        this.processSingleAsset(
+          jobData,
+          component,
+          validation.normalized_file_path,
+          outputDir,
+          index
+        )
+      );
+
+      const outputs = await Promise.allSettled(assetPromises);
+
+      // Handle results - warn & continue on failure
+      const successfulOutputs = [];
+      const failedOutputs = [];
+
+      outputs.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulOutputs.push(result.value);
+        } else {
+          failedOutputs.push({
+            component: pipelineComponents[index],
+            error: result.reason.message
+          });
+        }
+      });
+
+      // Warn user if any failed
+      if (failedOutputs.length > 0) {
+        console.warn(`⚠️  ${failedOutputs.length} components failed, continuing...`);
+      }
+
+      // Update job with outputs
+      await db.query(
+        'UPDATE jobs SET outputs = $1, parsed_filename = $2 WHERE id = $3',
+        [
+          JSON.stringify(successfulOutputs),
+          JSON.stringify(parsedFilename),
+          jobId
+        ]
+      );
+
+      // Update status to completed
+      await db.query(
+        'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2',
+        ['completed', jobId]
+      );
+
+      return {
+        success: true,
+        outputs: successfulOutputs,
+        warnings: failedOutputs
+      };
+
+    } catch (error) {
+      console.error(`Job ${jobId} error:`, error);
+      
+      await db.query(
+        'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2',
+        ['failed', jobId]
+      );
+
+      throw error;
+    }
+  }
+
+  // STAGE 0: Validation & Normalization
+  async validateAndNormalize(jobData) {
+    const filePath = jobData.input_file_path;
+    const corrections = [];
+    const errors = [];
+    const warnings = [];
+
+    try {
+      // Read file metadata
+      const metadata = await sharp(filePath).metadata();
+
+      // Check for CMYK
+      if (metadata.space === 'cmyk') {
+        errors.push(`File uses CMYK color space - not supported`);
+        return { status: 'rejected', errors };
+      }
+
+      // Check for custom channels (non-standard)
+      if (metadata.hasAlpha === true && metadata.channels > 4) {
+        warnings.push('File has custom channels beyond RGBA - they will be stripped');
+        corrections.push('Custom channels removed');
+      }
+
+      // Check bit depth
+      if (metadata.depth && metadata.depth > 8) {
+        corrections.push(`Reduced bit-depth from ${metadata.depth} to 8`);
+      }
+
+      // Check for multiple ICC profiles
+      if (metadata.icc && metadata.icc.length > 1) {
+        warnings.push(`Multiple ICC profiles detected (${metadata.icc.length}). Using first.`);
+      }
+
+      // Check for extreme dimensions
+      if (metadata.width > 50000 || metadata.height > 50000) {
+        errors.push('Image dimensions exceed maximum (50000px)');
+        return { status: 'rejected', errors };
+      }
+
+      // Check for animations
+      if (metadata.pages && metadata.pages > 1) {
+        errors.push('Animated formats (GIF, APNG, TIFF) not supported');
+        return { status: 'rejected', errors };
+      }
+
+      // Normalize file if needed
+      let normalizedPath = filePath;
+      let applied = [];
+
+      let pipeline = sharp(filePath);
+
+      // Reduce bit depth to 8
+      if (metadata.depth && metadata.depth > 8) {
+        pipeline = pipeline.toFormat('png', { bitDepth: 8 });
+        applied.push('bit_depth_reduced');
+      }
+
+      // Apply EXIF rotation
+      if (metadata.orientation) {
+        pipeline = pipeline.withMetadata();
+        applied.push('exif_rotation_applied');
+      }
+
+      // If any transformations needed, save normalized version
+      if (applied.length > 0) {
+        normalizedPath = filePath.replace(/\.(\w+)$/, '_normalized.$1');
+        await pipeline.toFile(normalizedPath);
+      }
+
+      return {
+        status: 'validated',
+        normalized_file_path: normalizedPath,
+        corrections_applied: corrections,
+        warnings,
+        metadata: {
+          width: metadata.width,
+          height: metadata.height,
+          depth: metadata.depth || 8,
+          space: metadata.space,
+          hasAlpha: metadata.hasAlpha
+        }
+      };
+
+    } catch (error) {
+      errors.push(`Validation error: ${error.message}`);
+      return { status: 'rejected', errors };
+    }
+  }
+
+  // Process single asset through a component pipeline
+  async processSingleAsset(jobData, component, inputPath, outputDir, index) {
+    // Fetch the single asset pipeline config
     const pipelineResult = await db.query(
-      'SELECT config FROM pipelines WHERE id = $1',
-      [pipeline_id]
+      'SELECT config FROM single_asset_pipelines WHERE id = $1',
+      [component.ref]
     );
 
     if (pipelineResult.rows.length === 0) {
-      throw new Error('Pipeline not found');
+      throw new Error(`Pipeline component ${component.ref} not found`);
     }
 
-    let config = pipelineResult.rows[0].config;
-    if (typeof config === 'string') {
-      config = JSON.parse(config);
+    const config = pipelineResult.rows[0].config;
+    const startTime = Date.now();
+
+    try {
+      let image = sharp(inputPath);
+
+      // Apply sizing
+      if (config.sizing) {
+        image = this.applySizing(image, config.sizing);
+      }
+
+      // Apply color management
+      if (config.color) {
+        image = this.applyColorManagement(image, config.color);
+      }
+
+      // Apply transparency
+      if (config.transparency) {
+        image = this.applyTransparency(image, config.transparency);
+      }
+
+      // Apply format & encoding
+      const outputFilename = `${jobData.file_name.replace(/\.[^/.]+$/, '')}${config.suffix}.${config.format.type}`;
+      const outputPath = path.join(outputDir, outputFilename);
+
+      image = this.applyFormat(image, config);
+
+      // Save with format-specific optimizations
+      await image.toFile(outputPath);
+
+      const duration = Date.now() - startTime;
+      const stats = fs.statSync(outputPath);
+
+      return {
+        filename: outputFilename,
+        pipeline_component: config.name,
+        suffix: config.suffix,
+        format: config.format.type,
+        dimensions: config.sizing,
+        filesize_bytes: stats.size,
+        processing_time_ms: duration,
+        settings: config
+      };
+
+    } catch (error) {
+      throw new Error(`Component ${config.name} failed: ${error.message}`);
     }
+  }
 
-    const inputBuffer = Buffer.from(file_data, 'base64');
-    const jobOutputDir = path.join(OUTPUT_PATH, job_id);
-    fs.mkdirSync(jobOutputDir, { recursive: true });
+  // Sizing logic
+  applySizing(image, sizing) {
+    const { aspectRatio, width, height, fit, dpi } = sizing;
 
-    const outputs = [];
-    for (const outputSpec of config.outputs) {
-      const outputBuffer = await resizeImage(inputBuffer, outputSpec);
-      const filename = `${outputSpec.name}.${outputSpec.format || 'jpg'}`;
-      const filepath = path.join(jobOutputDir, filename);
-
-      fs.writeFileSync(filepath, outputBuffer);
-      outputs.push({ 
-        name: outputSpec.name, 
-        filename, 
-        path: filepath,
-        size: outputBuffer.length,
+    if (!aspectRatio || aspectRatio === 'null') {
+      // Native aspect ratio - just apply width/height
+      return image.resize(width, height, {
+        fit: 'inside',
+        withoutEnlargement: true
       });
     }
 
-    const duration = Date.now() - startTime;
+    // Parse aspect ratio
+    const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
+    const targetAR = ratioW / ratioH;
 
-    await db.query(
-      `UPDATE jobs SET status = $1, output_data = $2, duration_ms = $3, updated_at = NOW() WHERE id = $4`,
-      ['completed', JSON.stringify(outputs), duration, job_id]
-    );
-
-    // Publish completion update
-    await pubClient.publish('job-updates', JSON.stringify({
-      job_id,
-      status: 'completed',
-      duration_ms: duration,
-      output_count: outputs.length,
-      completed_at: new Date().toISOString(),
-    }));
-
-    console.log(`Job ${job_id} completed in ${duration}ms`);
-    return { job_id, status: 'completed', outputs, duration_ms: duration };
-
-  } catch (err) {
-    console.error('Job error:', err);
-    
-    const duration = Date.now() - startTime;
-    
-    await db.query(
-      `UPDATE jobs SET status = $1, error_message = $2, duration_ms = $3, updated_at = NOW() WHERE id = $4`,
-      ['failed', err.message, duration, job.data.job_id]
-    );
-
-    // Publish failure update
-    await pubClient.publish('job-updates', JSON.stringify({
-      job_id: job.data.job_id,
-      status: 'failed',
-      error: err.message,
-      duration_ms: duration,
-      failed_at: new Date().toISOString(),
-    }));
-
-    throw err;
+    // Create canvas and fit image
+    return image
+      .resize(width, height, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 }, // Transparent
+        withoutEnlargement: false
+      })
+      .extend({
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: { r: 0, g: 0, b: 0, alpha: 0 } // Transparent padding
+      });
   }
-}, {
-  connection: {
-    host: 'redis',
-    port: 6379,
-    maxRetriesPerRequest: null,
-  },
-  concurrency: 2,
-});
 
-worker.on('completed', (job) => {
-  console.log(`Job ${job.id} completed`);
-});
+  // Color management
+  applyColorManagement(image, color) {
+    const { gammaCorrect } = color;
+    
+    if (gammaCorrect) {
+      image = image.gamma(2.2);
+    }
 
-worker.on('failed', (job, err) => {
-  console.error(`Job ${job.id} failed:`, err.message);
-});
+    // ICC profile handling done during format export
+    return image;
+  }
 
-console.log('Worker started, listening for jobs...');
-console.log(`Redis URL: ${REDIS_URL}`);
-console.log(`Database: ${process.env.DB_NAME}`);
+  // Transparency
+  applyTransparency(image, transparency) {
+    if (!transparency.preserve) {
+      const bgColor = transparency.background;
+      return image.flatten({ background: bgColor });
+    }
+    return image;
+  }
 
-process.on('SIGTERM', async () => {
-  await worker.close();
-  await pubClient.quit();
-  await db.end();
-  process.exit(0);
-});
+  // Format & encoding with optimization
+  applyFormat(image, config) {
+    const { format } = config;
+
+    if (format.type === 'png') {
+      return image.png({
+        compressionLevel: config.formatSpecific.png ? 
+          Math.ceil(config.formatSpecific.png.compressionLevel / 11) : 9,
+        adaptiveFiltering: true
+      });
+    }
+
+    if (format.type === 'jpg') {
+      return image.jpeg({
+        quality: config.format.lossyQuality,
+        progressive: config.formatSpecific.jpg?.progressive || false,
+        mozjpeg: config.formatSpecific.jpg?.mozjpeg || false
+      });
+    }
+
+    if (format.type === 'webp') {
+      return image.webp({
+        quality: config.format.lossyQuality,
+        alphaQuality: config.formatSpecific.webp?.alphaQuality || 100
+      });
+    }
+
+    throw new Error(`Unsupported format: ${format.type}`);
+  }
+
+  // Filename parsing for Dropbox routing
+  parseFilename(filename) {
+    // This will be populated from pattern in database
+    // For now, just return basic parse
+    return {
+      original: filename,
+      name: filename.replace(/\.[^/.]+$/, ''),
+      ext: filename.split('.').pop()
+    };
+  }
+
+  // Helper: Update job status
+  async updateJobStatus(jobId, status, data = {}) {
+    await db.query(
+      'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2',
+      [status, jobId]
+    );
+  }
+
+  start() {
+    console.log('Worker started, listening for jobs...');
+  }
+}
+
+// Start worker
+const worker = new ImagePipelineWorker();
+worker.start();
+
+module.exports = worker;
