@@ -78,23 +78,35 @@ router.get('/:id/download', async (req, res) => {
     const job = jobResult.rows[0];
     const inputFileName = job.file_name; // e.g., "photo.png"
     
-    // Get pipeline config to extract suffix and format
-    const pipelineResult = await global.db.query(
-      'SELECT config FROM pipelines WHERE id = $1',
-      [job.pipeline_id]
-    );
+    console.log(`[DOWNLOAD] Job ID: ${id}, Input file: ${inputFileName}, Pipeline ID: ${job.pipeline_id}`);
     
-    const pipelineConfig = pipelineResult.rows.length > 0 
-      ? (typeof pipelineResult.rows[0].config === 'string' 
-        ? JSON.parse(pipelineResult.rows[0].config) 
-        : pipelineResult.rows[0].config)
-      : {};
+    // Get pipeline config to extract suffix and format
+    let pipelineConfig = {};
+    try {
+      const pipelineResult = await global.db.query(
+        'SELECT config FROM pipelines WHERE id = $1',
+        [job.pipeline_id]
+      );
+      
+      if (pipelineResult.rows.length > 0) {
+        pipelineConfig = typeof pipelineResult.rows[0].config === 'string' 
+          ? JSON.parse(pipelineResult.rows[0].config) 
+          : pipelineResult.rows[0].config;
+        console.log(`[DOWNLOAD] Pipeline config found:`, JSON.stringify(pipelineConfig).substring(0, 200));
+      } else {
+        console.log(`[DOWNLOAD] No pipeline config found for ID ${job.pipeline_id}`);
+      }
+    } catch (err) {
+      console.error(`[DOWNLOAD] Error fetching pipeline config:`, err.message);
+    }
 
     const outputDir = path.join(OUTPUT_PATH, id);
     
     // Get all files and filter out input_* files
     const allFiles = fs.readdirSync(outputDir);
     const outputFiles = allFiles.filter(file => !file.startsWith('input_'));
+
+    console.log(`[DOWNLOAD] Output files:`, outputFiles);
 
     if (outputFiles.length === 0) {
       return res.status(404).json({ error: 'No output files found for this job' });
@@ -106,6 +118,8 @@ router.get('/:id/download', async (req, res) => {
       const suffix = pipelineConfig?.suffix || '';
       const properFileName = generateProperFileName(inputFileName, suffix, format);
       
+      console.log(`[DOWNLOAD] Single file: format="${format}", suffix="${suffix}", properFileName="${properFileName}"`);
+      
       res.setHeader('Content-Disposition', `attachment; filename="${properFileName}"`);
       res.setHeader('Content-Type', 'application/octet-stream');
       res.sendFile(path.join(outputDir, outputFiles[0]));
@@ -114,6 +128,8 @@ router.get('/:id/download', async (req, res) => {
       const format = pipelineConfig?.format?.type || 'jpeg';
       const suffix = pipelineConfig?.suffix || '';
       const zipName = `job-${id.substring(0, 8)}.zip`;
+      
+      console.log(`[DOWNLOAD] Multiple files (${outputFiles.length}): format="${format}", suffix="${suffix}"`);
       
       res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
       res.setHeader('Content-Type', 'application/zip');
@@ -124,12 +140,14 @@ router.get('/:id/download', async (req, res) => {
       outputFiles.forEach(file => {
         // For each file, use proper naming
         const properFileName = generateProperFileName(inputFileName, suffix, format);
+        console.log(`[DOWNLOAD] Adding to ZIP: ${file} -> ${properFileName}`);
         archive.file(path.join(outputDir, file), { name: properFileName });
       });
       
       await archive.finalize();
     }
   } catch (err) {
+    console.error(`[DOWNLOAD] Error:`, err);
     res.status(500).json({ error: err.message });
   }
 });
