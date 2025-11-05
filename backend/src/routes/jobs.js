@@ -41,55 +41,38 @@ router.get('/:id', async (req, res) => {
 // GET /api/jobs/:id/download - Download job outputs as ZIP or single file
 router.get('/:id/download', async (req, res) => {
   try {
-    const jobResult = await global.db.query(
-      'SELECT * FROM jobs WHERE id = $1',
-      [req.params.id]
-    );
-
-    if (jobResult.rows.length === 0) {
+    const { id } = req.params;
+    const job = await db.query('SELECT * FROM jobs WHERE id = $1', [id]);
+    
+    if (job.rows.length === 0) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    const job = jobResult.rows[0];
-    const jobOutputDir = path.join(OUTPUT_PATH, job.id);
+    const outputDir = path.join(OUTPUT_PATH, id);
+    const files = fs.readdirSync(outputDir);
 
-    // Verify output directory exists
-    if (!fs.existsSync(jobOutputDir)) {
-      return res.status(404).json({ error: 'Output files not found' });
-    }
-
-    const files = fs.readdirSync(jobOutputDir);
-
-    if (files.length === 0) {
-      return res.status(404).json({ error: 'No output files available' });
-    }
-
-    // Single file: return directly
     if (files.length === 1) {
-      const filePath = path.join(jobOutputDir, files[0]);
-      const filename = `${job.file_name}-output-${files[0]}`;
-      
-      res.setHeader('Content-Type', 'application/octet-stream');
+      // Single file - download directly
+      const filename = files[0];
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.sendFile(path.join(outputDir, filename));
+    } else {
+      // Multiple files - create ZIP
+      const zipName = `job-${id.substring(0, 8)}.zip`;
+      res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+      res.setHeader('Content-Type', 'application/zip');
       
-      return res.sendFile(filePath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      archive.pipe(res);
+      
+      files.forEach(file => {
+        archive.file(path.join(outputDir, file), { name: file });
+      });
+      
+      await archive.finalize();
     }
-
-    // Multiple files: create ZIP
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${job.file_name}-outputs.zip"`);
-
-    const archive = archiver('zip', { zlib: { level: 6 } });
-    archive.pipe(res);
-
-    for (const file of files) {
-      const filePath = path.join(jobOutputDir, file);
-      archive.file(filePath, { name: file });
-    }
-
-    archive.finalize();
   } catch (err) {
-    console.error('Download error:', err);
     res.status(500).json({ error: err.message });
   }
 });
