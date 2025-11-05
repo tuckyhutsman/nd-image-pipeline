@@ -63,6 +63,19 @@ const generateProperFileName = (inputFile, suffix, format) => {
   return `${inputBase}${suffix}${ext}`;
 };
 
+// Helper: Format Content-Disposition header properly
+// RFC 6266 compliant with UTF-8 and special character handling
+const formatContentDisposition = (filename, isAttachment = true) => {
+  // Escape special characters for Content-Disposition
+  const safeName = filename.replace(/"/g, '\\"');
+  const type = isAttachment ? 'attachment' : 'inline';
+  
+  // Use filename*= for UTF-8 encoding (RFC 5987)
+  // and filename= for backward compatibility
+  const encodedName = encodeURIComponent(filename);
+  return `${type}; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
+};
+
 // GET /api/jobs/:id/download - Download job outputs as ZIP or single file
 // FIX #5: Excludes input_* files from downloads
 // ISSUE #2 FIX: Proper file naming with input name + pipeline suffix + format extension
@@ -120,8 +133,13 @@ router.get('/:id/download', async (req, res) => {
       
       console.log(`[DOWNLOAD] Single file: format="${format}", suffix="${suffix}", properFileName="${properFileName}"`);
       
-      res.setHeader('Content-Disposition', `attachment; filename="${properFileName}"`);
+      // Set proper headers for download
+      res.setHeader('Content-Disposition', formatContentDisposition(properFileName));
       res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.sendFile(path.join(outputDir, outputFiles[0]));
     } else {
       // Multiple files - create ZIP with proper individual names
@@ -131,8 +149,11 @@ router.get('/:id/download', async (req, res) => {
       
       console.log(`[DOWNLOAD] Multiple files (${outputFiles.length}): format="${format}", suffix="${suffix}"`);
       
-      res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+      res.setHeader('Content-Disposition', formatContentDisposition(zipName));
       res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       const archive = archiver('zip', { zlib: { level: 9 } });
       archive.pipe(res);
