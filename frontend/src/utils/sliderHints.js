@@ -1,86 +1,73 @@
 // Slider Hint Configuration - Maps value ranges to algorithm info with color gradients
+// Colors: Green (fastest) → Blue (balanced) → Orange → Red (slowest/smallest)
+// Color scheme driven by actual algorithmic transitions in worker.js
 
 /**
  * Define algorithm transitions and visual hints for different compression ranges
- * Colors: Orange (fastest/largest) → Blue (balanced) → Green (slowest/smallest)
+ * Colors reflect processing intensity: Green (fast) → Red (intensive)
  */
 
 // PNG COMPRESSION HINTS (0-100 scale)
+// 3 distinct algorithms: Sharp → pngcrush-max → pngcrush-brute
 export const PNG_COMPRESSION_HINTS = {
   ranges: [
     {
       min: 0,
-      max: 20,
-      label: 'Conventional lossless compression',
+      max: 70,
+      label: 'Sharp lossless compression',
       sublabel: 'fastest/largest',
       algorithm: 'sharp',
-      color: '#FF9500', // Orange
+      color: '#00AA44', // Green
       weight: 'regular',
     },
     {
-      min: 21,
-      max: 69,
-      label: 'pngcrush lossless compression',
-      sublabel: 'medium',
+      min: 71,
+      max: 85,
+      label: 'pngcrush maximum compression',
+      sublabel: 'high compression',
       algorithm: 'pngcrush',
       color: '#0066CC', // Blue
       weight: 'regular',
     },
     {
-      min: 70,
-      max: 85,
-      label: 'pngcrush lossless compression',
-      sublabel: 'maximum',
-      algorithm: 'pngcrush',
-      color: '#0099FF', // Light Blue
-      weight: 'regular',
-    },
-    {
       min: 86,
       max: 100,
-      label: 'Brute force pngcrush lossless compression',
+      label: 'pngcrush brute force compression',
       sublabel: 'slowest/smallest',
       algorithm: 'pngcrush',
-      color: '#34C759', // Green
+      color: '#FF6600', // Orange-Red
       weight: 'regular',
     },
   ],
 };
 
 // PNG8 COMPRESSION HINTS (0-100 scale)
+// 2 distinct algorithms: Sharp palette → pngquant
 export const PNG8_COMPRESSION_HINTS = {
   ranges: [
     {
       min: 0,
-      max: 20,
-      label: 'Conventional indexed color',
+      max: 60,
+      label: 'Sharp indexed color',
       sublabel: 'fastest/largest',
       algorithm: 'sharp',
-      color: '#FF9500', // Orange
-      weight: 'regular',
-    },
-    {
-      min: 21,
-      max: 60,
-      label: 'pngquant indexed color',
-      sublabel: 'medium',
-      algorithm: 'pngquant',
-      color: '#0066CC', // Blue
+      color: '#00AA44', // Green
       weight: 'regular',
     },
     {
       min: 61,
       max: 100,
-      label: 'pngquant indexed color',
+      label: 'pngquant color reduction',
       sublabel: 'slowest/smallest',
       algorithm: 'pngquant',
-      color: '#34C759', // Green
+      color: '#FF3333', // Red
       weight: 'regular',
     },
   ],
 };
 
 // JPEG QUALITY HINTS (0-100 scale for Quality slider)
+// Quality affects visual detail, not algorithm choice
 export const JPEG_QUALITY_HINTS = {
   ranges: [
     {
@@ -89,7 +76,7 @@ export const JPEG_QUALITY_HINTS = {
       label: 'Very low quality',
       sublabel: 'smallest files',
       algorithm: 'mozjpeg',
-      color: '#FF9500', // Orange
+      color: '#FF3333', // Red
       weight: 'regular',
     },
     {
@@ -98,7 +85,7 @@ export const JPEG_QUALITY_HINTS = {
       label: 'Moderate quality',
       sublabel: 'balanced',
       algorithm: 'mozjpeg',
-      color: '#0066CC', // Blue
+      color: '#FF9500', // Orange
       weight: 'regular',
     },
     {
@@ -107,7 +94,7 @@ export const JPEG_QUALITY_HINTS = {
       label: 'Good quality',
       sublabel: 'recommended',
       algorithm: 'mozjpeg',
-      color: '#0099FF', // Light Blue
+      color: '#0066CC', // Blue
       weight: 'regular',
     },
     {
@@ -116,22 +103,23 @@ export const JPEG_QUALITY_HINTS = {
       label: 'High quality',
       sublabel: 'largest files',
       algorithm: 'mozjpeg',
-      color: '#34C759', // Green
+      color: '#00AA44', // Green
       weight: 'regular',
     },
   ],
 };
 
 // JPEG COMPRESSION HINTS (0-100 scale for Compression slider)
+// 4 distinct quantization strategies - MOST GRANULAR
 export const JPEG_COMPRESSION_HINTS = {
   ranges: [
     {
       min: 0,
       max: 29,
-      label: 'Very aggressive compression',
-      sublabel: 'fastest/largest',
+      label: 'Most aggressive compression',
+      sublabel: 'fastest',
       algorithm: 'mozjpeg',
-      color: '#FF9500', // Orange
+      color: '#00AA44', // Green
       weight: 'semibold',
       config: 'quantTable=4, optimizeScans=false',
     },
@@ -149,9 +137,9 @@ export const JPEG_COMPRESSION_HINTS = {
       min: 61,
       max: 85,
       label: 'Balanced compression',
-      sublabel: 'recommended',
+      sublabel: 'high effort',
       algorithm: 'mozjpeg',
-      color: '#0099FF', // Light Blue
+      color: '#FF9500', // Orange
       weight: 'semibold',
       config: 'quantTable=2, optimizeScans=true',
     },
@@ -161,7 +149,7 @@ export const JPEG_COMPRESSION_HINTS = {
       label: 'Conservative compression',
       sublabel: 'slowest/smallest',
       algorithm: 'mozjpeg',
-      color: '#34C759', // Green
+      color: '#FF3333', // Red
       weight: 'semibold',
       config: 'quantTable=1, optimizeScans=true',
     },
@@ -169,6 +157,7 @@ export const JPEG_COMPRESSION_HINTS = {
 };
 
 // WEBP QUALITY HINTS (0-100 scale)
+// Quality affects visual detail, algorithm is consistent
 export const WEBP_QUALITY_HINTS = {
   ranges: [
     {
@@ -177,7 +166,7 @@ export const WEBP_QUALITY_HINTS = {
       label: 'Very low quality',
       sublabel: 'smallest files',
       algorithm: 'webp',
-      color: '#FF9500', // Orange
+      color: '#FF3333', // Red
       weight: 'regular',
     },
     {
@@ -186,7 +175,7 @@ export const WEBP_QUALITY_HINTS = {
       label: 'Moderate quality',
       sublabel: 'balanced',
       algorithm: 'webp',
-      color: '#0066CC', // Blue
+      color: '#FF9500', // Orange
       weight: 'regular',
     },
     {
@@ -195,7 +184,7 @@ export const WEBP_QUALITY_HINTS = {
       label: 'Good quality',
       sublabel: 'recommended',
       algorithm: 'webp',
-      color: '#0099FF', // Light Blue
+      color: '#0066CC', // Blue
       weight: 'regular',
     },
     {
@@ -204,13 +193,14 @@ export const WEBP_QUALITY_HINTS = {
       label: 'High quality',
       sublabel: 'largest files',
       algorithm: 'webp',
-      color: '#34C759', // Green
+      color: '#00AA44', // Green
       weight: 'regular',
     },
   ],
 };
 
 // WEBP COMPRESSION HINTS (0-100 scale for effort)
+// Single algorithm, 6 effort levels (intensity parameter)
 export const WEBP_COMPRESSION_HINTS = {
   ranges: [
     {
@@ -219,7 +209,7 @@ export const WEBP_COMPRESSION_HINTS = {
       label: 'Effort level 0',
       sublabel: 'fastest',
       algorithm: 'webp',
-      color: '#FF9500', // Orange
+      color: '#00AA44', // Green
       weight: 'semibold',
     },
     {
@@ -228,7 +218,7 @@ export const WEBP_COMPRESSION_HINTS = {
       label: 'Effort level 1-2',
       sublabel: 'fast',
       algorithm: 'webp',
-      color: '#FF9500', // Orange
+      color: '#44BB44', // Light Green
       weight: 'semibold',
     },
     {
@@ -246,7 +236,7 @@ export const WEBP_COMPRESSION_HINTS = {
       label: 'Effort level 4',
       sublabel: 'high',
       algorithm: 'webp',
-      color: '#0099FF', // Light Blue
+      color: '#FF9500', // Orange
       weight: 'semibold',
     },
     {
@@ -255,7 +245,7 @@ export const WEBP_COMPRESSION_HINTS = {
       label: 'Effort level 5',
       sublabel: 'higher',
       algorithm: 'webp',
-      color: '#00B348', // Light Green
+      color: '#FF6600', // Red-Orange
       weight: 'semibold',
     },
     {
@@ -264,7 +254,7 @@ export const WEBP_COMPRESSION_HINTS = {
       label: 'Effort level 6',
       sublabel: 'slowest/smallest',
       algorithm: 'webp',
-      color: '#34C759', // Green
+      color: '#FF3333', // Red
       weight: 'semibold',
     },
   ],
@@ -282,10 +272,10 @@ export function getSliderHint(value, hintConfig) {
 }
 
 /**
- * Interpolate color between two hex colors based on position
- * Used for smooth color gradient across slider
+ * Get color for a specific value
  * @param {number} value - Current value (0-100)
- * @returns {string} Interpolated hex color
+ * @param {object} hintConfig - The hint configuration
+ * @returns {string} Hex color
  */
 export function interpolateSliderColor(value, hintConfig) {
   const hint = getSliderHint(value, hintConfig);

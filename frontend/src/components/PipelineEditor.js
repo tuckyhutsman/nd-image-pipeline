@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './PipelineEditor.css';
+import SliderWithHint from './SliderWithHint';
+import {
+  PNG_COMPRESSION_HINTS,
+  PNG8_COMPRESSION_HINTS,
+  JPEG_QUALITY_HINTS,
+  JPEG_COMPRESSION_HINTS,
+  WEBP_QUALITY_HINTS,
+  WEBP_COMPRESSION_HINTS,
+} from '../utils/sliderHints';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -575,70 +584,80 @@ function PipelineEditor({ onPipelineSaved }) {
               </select>
             </div>
 
-            {/* Quality (Lossy) - shown for JPEG and WebP */}
-            {['jpeg', 'webp'].includes(singleAssetForm.format.type) && (
-              <div className="form-group">
-                <div className="slider-header">
-                  <label>Quality (Lossy) — 0-100</label>
-                  <span className="slider-value">{singleAssetForm.format.quality}</span>
-                </div>
-                <input
-                  type="range"
+            {/* Quality (Lossy) - shown for JPEG */}
+            {singleAssetForm.format.type === 'jpeg' && (
+              <>
+                <SliderWithHint
                   value={singleAssetForm.format.quality}
-                  onChange={(e) => setSingleAssetForm({
+                  onChange={(value) => setSingleAssetForm({
                     ...singleAssetForm,
-                    format: {...singleAssetForm.format, quality: parseInt(e.target.value)}
+                    format: {...singleAssetForm.format, quality: value}
                   })}
-                  min="0"
-                  max="100"
-                  className="quality-slider"
+                  label="Quality (Lossy) — 0-100"
+                  hintConfig={JPEG_QUALITY_HINTS}
                 />
-                <small>Higher = better quality, larger file. Controls lossy compression (detail loss).</small>
-              </div>
-            )}
-
-            {/* Compression (Lossless) - shown for PNG and PNG8 */}
-            {['png', 'png8'].includes(singleAssetForm.format.type) && (
-              <div className="form-group">
-                <div className="slider-header">
-                  <label>Compression (Lossless) — 0-100</label>
-                  <span className="slider-value">{singleAssetForm.format.compression}</span>
-                </div>
-                <input
-                  type="range"
+                <SliderWithHint
                   value={singleAssetForm.format.compression}
-                  onChange={(e) => setSingleAssetForm({
+                  onChange={(value) => setSingleAssetForm({
                     ...singleAssetForm,
-                    format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
+                    format: {...singleAssetForm.format, compression: value}
                   })}
-                  min="0"
-                  max="100"
-                  className="compression-slider"
+                  label="Compression (Optimization) — 0-100"
+                  hintConfig={JPEG_COMPRESSION_HINTS}
                 />
-                <small>Higher = smaller file, slower processing. Controls lossless compression (no detail loss).</small>
-              </div>
+              </>
             )}
 
-            {/* WebP supports both */}
+            {/* Quality (Lossy) - shown for WebP */}
             {singleAssetForm.format.type === 'webp' && (
-              <div className="form-group">
-                <div className="slider-header">
-                  <label>Lossless Compression — 0-100</label>
-                  <span className="slider-value">{singleAssetForm.format.compression}</span>
-                </div>
-                <input
-                  type="range"
-                  value={singleAssetForm.format.compression}
-                  onChange={(e) => setSingleAssetForm({
-                    ...singleAssetForm,
-                    format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
-                  })}
-                  min="0"
-                  max="100"
-                  className="compression-slider"
-                />
-                <small>Additional lossless optimization (WebP already has lossy Quality above).</small>
-              </div>
+              <SliderWithHint
+                value={singleAssetForm.format.quality}
+                onChange={(value) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, quality: value}
+                })}
+                label="Quality (Lossy) — 0-100"
+                hintConfig={WEBP_QUALITY_HINTS}
+              />
+            )}
+
+            {/* Compression (Lossless) - shown for PNG */}
+            {singleAssetForm.format.type === 'png' && (
+              <SliderWithHint
+                value={singleAssetForm.format.compression}
+                onChange={(value) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, compression: value}
+                })}
+                label="Compression (Lossless) — 0-100"
+                hintConfig={PNG_COMPRESSION_HINTS}
+              />
+            )}
+
+            {/* Compression (Lossless) - shown for PNG8 */}
+            {singleAssetForm.format.type === 'png8' && (
+              <SliderWithHint
+                value={singleAssetForm.format.compression}
+                onChange={(value) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, compression: value}
+                })}
+                label="Compression (Indexed Color) — 0-100"
+                hintConfig={PNG8_COMPRESSION_HINTS}
+              />
+            )}
+
+            {/* WebP compression (effort) */}
+            {singleAssetForm.format.type === 'webp' && (
+              <SliderWithHint
+                value={singleAssetForm.format.compression}
+                onChange={(value) => setSingleAssetForm({
+                  ...singleAssetForm,
+                  format: {...singleAssetForm.format, compression: value}
+                })}
+                label="Effort (Processing Time) — 0-100"
+                hintConfig={WEBP_COMPRESSION_HINTS}
+              />
             )}
 
             {/* Format info box */}

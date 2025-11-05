@@ -9,7 +9,7 @@ import './SliderWithHint.css';
  * SliderWithHint Component
  * 
  * Displays a slider with:
- * - Dynamic color feedback (Orange → Blue → Green)
+ * - Dynamic color feedback (Green → Blue → Orange → Red)
  * - Algorithm name and settings
  * - Performance tradeoff indicator (fastest/largest ↔ slowest/smallest)
  * - Numeric display in rounded box
@@ -57,7 +57,7 @@ const SliderWithHint = ({
           onChange={(e) => onChange(parseInt(e.target.value, 10))}
           className="slider-input"
           style={{
-            background: `linear-gradient(to right, #FF9500 0%, #0066CC 50%, #34C759 100%)`,
+            background: `linear-gradient(to right, #00AA44 0%, #0066CC 50%, #FF3333 100%)`,
           }}
         />
       </div>
@@ -92,7 +92,7 @@ const SliderWithHint = ({
       {/* Description */}
       <small className="slider-description">
         {label.includes('Compression') 
-          ? 'Higher = smaller file, slower processing. Lossless compression (no detail loss).'
+          ? 'Higher = more intensive processing, slower but smaller files.'
           : 'Controls detail preservation and visual quality.'}
       </small>
     </div>

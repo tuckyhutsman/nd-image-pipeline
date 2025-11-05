@@ -1,74 +1,55 @@
 #!/bin/bash
-# Deploy script for pushing to LXC and redeploying
+# Deployment script for slider hint system updates
 
-set -e
+echo "🚀 Deploying Slider Hint System to nd-image-pipeline"
+echo ""
 
-echo "🚀 nd-image-pipeline Deployment Script"
-echo "========================================"
+# Step 1: Commit changes
+echo "📝 Committing changes..."
+git add .
+git commit -m "feat: implement data-driven slider hint system with algorithm feedback
 
-# Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+Changes:
+- Add SliderWithHint component with Green→Red color scheme reflecting processing intensity
+- Integrate enhanced sliders into PipelineEditor for all image formats
+- PNG 24-bit: 3 algorithms (Sharp → pngcrush-max → pngcrush-brute)
+- PNG8: 2 algorithms (Sharp → pngquant)
+- JPEG: 4 quantization levels with separate Quality/Compression sliders
+- WebP: 6 effort levels with Quality/Effort sliders
+- Fix HTTP 400 error in JobSubmit (pipeline_id integer parsing)
+- Add comprehensive documentation (SLIDER_HINTS_SYSTEM.md, IMPLEMENTATION_COMPLETE.md)
 
-# Check if we're in the right directory
-if [ ! -f "docker-compose.yml" ]; then
-    echo -e "${RED}❌ Error: docker-compose.yml not found${NC}"
-    echo "Run this script from the project root directory"
-    exit 1
-fi
+Visual improvements:
+- Dynamic color feedback: Green (fast) → Blue (balanced) → Orange/Red (slow)
+- Algorithm names in monospace font with color-coded performance badges
+- Real-time slider hints showing current algorithm and processing tradeoff
+- Smooth color transitions matching actual worker.js algorithm breakpoints
 
-echo -e "${YELLOW}📋 Step 1: Check Git Status${NC}"
-git status
+Testing:
+- All formats tested with correct algorithm transitions
+- No HTTP errors in job submission
+- Responsive design with dark mode support"
 
-echo -e "\n${YELLOW}📋 Step 2: Add changes${NC}"
-git add backend/src/worker.js \
-        frontend/src/components/JobSubmit.js \
-        frontend/src/components/JobSubmit.css \
-        WORKER_COMPRESSION_ENHANCEMENTS.md \
-        DEPLOYMENT_GUIDE_COMPRESSION.md \
-        CHAT_7_SUMMARY.md
+echo ""
+echo "✅ Changes committed"
+echo ""
 
-echo -e "${GREEN}✓ Files staged${NC}"
-
-echo -e "\n${YELLOW}📋 Step 3: Commit changes${NC}"
-git commit -m "feat: Add compression enhancements and batch description field
-
-Worker Improvements:
-- Format-specific compression with pngcrush/pngquant integration
-- mozjpeg parameter tuning based on compression slider (0-100)
-- WebP effort level mapping for better compression control
-- Detailed logging of compression ratios and optimization steps
-- Graceful fallback if external tools unavailable
-
-Frontend Improvements:
-- Add batch description field (max 50 chars, alphanumeric+hyphens/underscores)
-- Auto-extract customer prefix from filenames for batch grouping
-- Real-time validation and character counter
-- Auto-generate description if left blank
-
-Documentation:
-- WORKER_COMPRESSION_ENHANCEMENTS.md - Technical implementation guide
-- DEPLOYMENT_GUIDE_COMPRESSION.md - LXC deployment procedures
-- CHAT_7_SUMMARY.md - Overview and accomplishments"
-
-echo -e "${GREEN}✓ Changes committed${NC}"
-
-echo -e "\n${YELLOW}📋 Step 4: Push to GitHub${NC}"
+# Step 2: Push to GitHub
+echo "📤 Pushing to GitHub..."
 git push origin main
-echo -e "${GREEN}✓ Pushed to GitHub${NC}"
 
-echo -e "\n${GREEN}✅ GitHub Push Complete!${NC}"
-
-echo -e "\n${YELLOW}📋 Step 5: Deploy to LXC${NC}"
-echo "Run these commands on your LXC host:"
 echo ""
-echo -e "${YELLOW}ssh user@lxc-host${NC}"
-echo -e "${YELLOW}cd /opt/nd-image-pipeline${NC}"
-echo -e "${YELLOW}git pull origin main${NC}"
-echo -e "${YELLOW}docker compose down${NC}"
-echo -e "${YELLOW}docker compose up -d --build${NC}"
-echo -e "${YELLOW}docker compose logs -f worker${NC}"
+echo "✅ Pushed to GitHub"
 echo ""
-echo -e "${GREEN}✅ All files ready for LXC deployment!${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🖥️  Now deploy to production LXC:"
+echo ""
+echo "   ssh user@lxc-host"
+echo "   cd /opt/nd-image-pipeline"
+echo "   git pull origin main"
+echo "   docker compose down"
+echo "   docker compose up -d --build"
+echo "   docker compose logs -f"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
