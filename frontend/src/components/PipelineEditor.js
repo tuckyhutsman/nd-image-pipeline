@@ -1,41 +1,237 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import './PipelineEditor.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+// Pipeline types
 const PIPELINE_TYPES = {
   SINGLE_ASSET: 'single_asset',
   MULTI_ASSET: 'multi_asset',
 };
 
-const OPERATIONS = {
-  RESIZE: 'resize',
-  CROP: 'crop',
-  FORMAT_CONVERT: 'format_convert',
-  COLOR_ADJUST: 'color_adjust',
-  WATERMARK: 'watermark',
-  THUMBNAIL: 'thumbnail',
-  OPTIMIZE: 'optimize',
+// Single asset pipeline settings
+const ASPECT_RATIOS = [
+  { label: 'None (Native)', value: null },
+  { label: '1:1 (Square)', value: '1:1' },
+  { label: '4:3 (Standard)', value: '4:3' },
+  { label: '16:9 (Widescreen)', value: '16:9' },
+  { label: '3:2 (Photography)', value: '3:2' },
+  { label: '16:10 (Web)', value: '16:10' },
+  { label: 'Custom', value: 'custom' },
+];
+
+const IMAGE_FORMATS = [
+  { label: 'PNG 24-bit (Transparent)', value: 'png' },
+  { label: 'PNG 8-bit (Indexed)', value: 'png8' },
+  { label: 'JPEG (No Transparency)', value: 'jpeg' },
+  { label: 'WebP', value: 'webp' },
+];
+
+const ICC_PROFILES = [
+  { label: 'sRGB', value: 'sRGB' },
+  { label: 'Adobe RGB', value: 'AdobeRGB' },
+  { label: 'Display P3', value: 'P3' },
+];
+
+const ICC_OPERATIONS = [
+  { label: 'Preserve Original', value: 'preserve' },
+  { label: 'Assign Profile', value: 'assign' },
+  { label: 'Convert to Profile', value: 'convert' },
+  { label: 'Remove Profile', value: 'remove' },
+];
+
+const ICC_HANDLING = [
+  { label: 'Embed Full Profile', value: 'embed' },
+  { label: 'Tag Profile Name', value: 'tag' },
+  { label: 'Omit Profile Info', value: 'omit' },
+];
+
+const OUTPUT_ARRANGEMENTS = [
+  {
+    value: 'flat',
+    label: 'Flat Directory',
+    description: 'All outputs in single directory (PL_XXX_2025_11_05)',
+  },
+  {
+    value: 'by_asset_type',
+    label: 'By Asset Type',
+    description: 'Subdirectories for each asset type (_web, _hero, _highres)',
+  },
+  {
+    value: 'by_input_file',
+    label: 'By Input File',
+    description: 'Each input file gets its own subdirectory',
+  },
+];
+
+// Preset templates
+const PRESET_TEMPLATES = {
+  web_standard: {
+    name: 'Web Standard',
+    description: '1000px web-optimized PNG',
+    type: PIPELINE_TYPES.SINGLE_ASSET,
+    suffix: '_web',
+    sizing: {
+      aspectRatio: null,
+      width: 1000,
+      height: null,
+      dpi: 72,
+      resampleIfNeeded: false,
+    },
+    format: {
+      type: 'png',
+      quality: 85,
+      compression: 6,
+    },
+    color: {
+      changeICC: 'convert',
+      destICC: 'sRGB',
+      gammaCorrect: true,
+    },
+    transparency: {
+      preserve: true,
+      background: '#FFFFFF',
+    },
+    iccHandling: 'embed',
+    resizeFilter: 'Lanczos',
+  },
+  social_square: {
+    name: 'Social Square',
+    description: '1200px square JPG for social media',
+    type: PIPELINE_TYPES.SINGLE_ASSET,
+    suffix: '_social',
+    sizing: {
+      aspectRatio: '1:1',
+      width: 1200,
+      height: 1200,
+      dpi: 72,
+      resampleIfNeeded: false,
+    },
+    format: {
+      type: 'jpeg',
+      quality: 80,
+      compression: null,
+    },
+    color: {
+      changeICC: 'convert',
+      destICC: 'sRGB',
+      gammaCorrect: true,
+    },
+    transparency: {
+      preserve: false,
+      background: '#FFFFFF',
+    },
+    iccHandling: 'tag',
+    resizeFilter: 'Lanczos',
+  },
+  hero_banner: {
+    name: 'Hero Banner',
+    description: '16:9 Hero image @ 2000px wide',
+    type: PIPELINE_TYPES.SINGLE_ASSET,
+    suffix: '_hero',
+    sizing: {
+      aspectRatio: '16:9',
+      width: 2000,
+      height: 1125,
+      dpi: 72,
+      resampleIfNeeded: false,
+    },
+    format: {
+      type: 'jpeg',
+      quality: 85,
+      compression: null,
+    },
+    color: {
+      changeICC: 'convert',
+      destICC: 'sRGB',
+      gammaCorrect: true,
+    },
+    transparency: {
+      preserve: false,
+      background: '#000000',
+    },
+    iccHandling: 'embed',
+    resizeFilter: 'Lanczos',
+  },
+  print_highres: {
+    name: 'Print High Res',
+    description: 'High-resolution PNG for print (300 DPI)',
+    type: PIPELINE_TYPES.SINGLE_ASSET,
+    suffix: '_print',
+    sizing: {
+      aspectRatio: null,
+      width: null,
+      height: null,
+      dpi: 300,
+      resampleIfNeeded: false,
+    },
+    format: {
+      type: 'png',
+      quality: 100,
+      compression: 9,
+    },
+    color: {
+      changeICC: 'convert',
+      destICC: 'AdobeRGB',
+      gammaCorrect: true,
+    },
+    transparency: {
+      preserve: true,
+      background: '#FFFFFF',
+    },
+    iccHandling: 'embed',
+    resizeFilter: 'Lanczos',
+  },
 };
 
 function PipelineEditor() {
   const [pipelines, setPipelines] = useState([]);
-  const [selectedPipeline, setSelectedPipeline] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState('list'); // 'list', 'create-single', 'create-multi', 'edit'
   const [editingId, setEditingId] = useState(null);
+  const [pipelineType, setPipelineType] = useState(PIPELINE_TYPES.SINGLE_ASSET);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form state
-  const [formData, setFormData] = useState({
+  // Form state for single-asset pipeline
+  const [singleAssetForm, setSingleAssetForm] = useState({
     name: '',
-    type: PIPELINE_TYPES.SINGLE_ASSET,
-    customer_id: 'default',
-    operations: [],
+    description: '',
+    suffix: '',
+    sizing: {
+      aspectRatio: null,
+      width: 1000,
+      height: null,
+      dpi: 72,
+      resampleIfNeeded: false,
+    },
+    format: {
+      type: 'png',
+      quality: 85,
+      compression: 6,
+    },
+    color: {
+      changeICC: 'preserve',
+      destICC: 'sRGB',
+      gammaCorrect: true,
+    },
+    transparency: {
+      preserve: true,
+      background: '#FFFFFF',
+    },
+    iccHandling: 'embed',
+    resizeFilter: 'Lanczos',
   });
 
-  // Load pipelines on mount
+  // Form state for multi-asset pipeline
+  const [multiAssetForm, setMultiAssetForm] = useState({
+    name: '',
+    description: '',
+    components: [], // References to single-asset pipelines
+    outputArrangement: 'flat',
+  });
+
   useEffect(() => {
     fetchPipelines();
   }, []);
@@ -49,101 +245,50 @@ function PipelineEditor() {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const addOperation = () => {
-    setFormData(prev => ({
-      ...prev,
-      operations: [
-        ...prev.operations,
-        {
-          id: Date.now(),
-          type: OPERATIONS.RESIZE,
-          enabled: true,
-          params: {},
-        },
-      ],
-    }));
-  };
-
-  const removeOperation = (operationId) => {
-    setFormData(prev => ({
-      ...prev,
-      operations: prev.operations.filter(op => op.id !== operationId),
-    }));
-  };
-
-  const updateOperation = (operationId, updates) => {
-    setFormData(prev => ({
-      ...prev,
-      operations: prev.operations.map(op =>
-        op.id === operationId ? { ...op, ...updates } : op
-      ),
-    }));
-  };
-
-  const updateOperationParams = (operationId, paramName, paramValue) => {
-    setFormData(prev => ({
-      ...prev,
-      operations: prev.operations.map(op =>
-        op.id === operationId
-          ? { ...op, params: { ...op.params, [paramName]: paramValue } }
-          : op
-      ),
-    }));
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSaveSingleAsset = async (e) => {
     e.preventDefault();
     
-    if (!formData.name.trim()) {
+    if (!singleAssetForm.name.trim()) {
       setError('Pipeline name is required');
-      return;
-    }
-
-    if (formData.operations.length === 0) {
-      setError('Pipeline must have at least one operation');
       return;
     }
 
     setLoading(true);
     setError('');
-    setSuccess('');
 
     try {
       const payload = {
-        name: formData.name,
-        customer_id: formData.customer_id,
+        name: singleAssetForm.name,
+        customer_id: 'default',
         config: {
-          type: formData.type,
-          operations: formData.operations,
+          type: PIPELINE_TYPES.SINGLE_ASSET,
+          ...singleAssetForm,
         },
       };
 
       if (editingId) {
         await axios.put(`${API_URL}/pipelines/${editingId}`, payload);
-        setSuccess('Pipeline updated successfully');
+        setSuccess('Pipeline updated');
       } else {
         await axios.post(`${API_URL}/pipelines`, payload);
-        setSuccess('Pipeline created successfully');
+        setSuccess('Pipeline created');
       }
 
-      setFormData({
+      setSingleAssetForm({
         name: '',
-        type: PIPELINE_TYPES.SINGLE_ASSET,
-        customer_id: 'default',
-        operations: [],
+        description: '',
+        suffix: '',
+        sizing: { aspectRatio: null, width: 1000, height: null, dpi: 72, resampleIfNeeded: false },
+        format: { type: 'png', quality: 85, compression: 6 },
+        color: { changeICC: 'preserve', destICC: 'sRGB', gammaCorrect: true },
+        transparency: { preserve: true, background: '#FFFFFF' },
+        iccHandling: 'embed',
+        resizeFilter: 'Lanczos',
       });
+
       setEditingId(null);
-      setShowForm(false);
-      
-      await fetchPipelines();
+      setMode('list');
+      fetchPipelines();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Error saving pipeline: ' + err.message);
@@ -152,392 +297,500 @@ function PipelineEditor() {
     }
   };
 
-  const handleEdit = (pipeline) => {
-    const config = typeof pipeline.config === 'string' 
-      ? JSON.parse(pipeline.config) 
-      : pipeline.config;
-    
-    setFormData({
-      name: pipeline.name,
-      type: config.type || PIPELINE_TYPES.SINGLE_ASSET,
-      customer_id: pipeline.customer_id,
-      operations: config.operations || [],
+  const handleApplyTemplate = (templateKey) => {
+    const template = PRESET_TEMPLATES[templateKey];
+    setSingleAssetForm({
+      name: template.name,
+      description: template.description,
+      suffix: template.suffix,
+      sizing: template.sizing,
+      format: template.format,
+      color: template.color,
+      transparency: template.transparency,
+      iccHandling: template.iccHandling,
+      resizeFilter: template.resizeFilter,
     });
-    setEditingId(pipeline.id);
-    setShowForm(true);
+    setMode('create-single');
+    setSuccess(`Loaded template: ${template.name}`);
+    setTimeout(() => setSuccess(''), 2000);
   };
 
-  const handleDelete = async (pipelineId) => {
-    if (!window.confirm('Are you sure you want to delete this pipeline?')) {
-      return;
+  const handleEdit = (pipeline) => {
+    const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
+    
+    if (config.type === PIPELINE_TYPES.SINGLE_ASSET) {
+      setSingleAssetForm({
+        name: pipeline.name,
+        description: config.description || '',
+        suffix: config.suffix || '',
+        sizing: config.sizing || {},
+        format: config.format || {},
+        color: config.color || {},
+        transparency: config.transparency || {},
+        iccHandling: config.iccHandling || 'embed',
+        resizeFilter: config.resizeFilter || 'Lanczos',
+      });
+      setMode('create-single');
+    } else {
+      setMultiAssetForm({
+        name: pipeline.name,
+        description: config.description || '',
+        components: config.components || [],
+        outputArrangement: config.outputArrangement || 'flat',
+      });
+      setMode('create-multi');
     }
 
+    setEditingId(pipeline.id);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this pipeline?')) return;
+
     try {
-      await axios.delete(`${API_URL}/pipelines/${pipelineId}`);
-      setSuccess('Pipeline deleted successfully');
-      await fetchPipelines();
-      setTimeout(() => setSuccess(''), 3000);
+      await axios.delete(`${API_URL}/pipelines/${id}`);
+      setSuccess('Pipeline deleted');
+      fetchPipelines();
+      setTimeout(() => setSuccess(''), 2000);
     } catch (err) {
       setError('Error deleting pipeline: ' + err.message);
     }
   };
 
-  const handleReset = () => {
-    setFormData({
-      name: '',
-      type: PIPELINE_TYPES.SINGLE_ASSET,
-      customer_id: 'default',
-      operations: [],
-    });
-    setEditingId(null);
-    setShowForm(false);
-  };
+  // Render list view
+  if (mode === 'list') {
+    return (
+      <div className="pipeline-editor">
+        <div className="editor-header">
+          <h2>Pipeline Editor</h2>
+          <div className="header-buttons">
+            <button className="btn btn-primary" onClick={() => { setMode('create-single'); setPipelineType(PIPELINE_TYPES.SINGLE_ASSET); }}>
+              + Single Asset
+            </button>
+            <button className="btn btn-primary" onClick={() => { setMode('create-multi'); setPipelineType(PIPELINE_TYPES.MULTI_ASSET); }}>
+              + Multi Asset
+            </button>
+          </div>
+        </div>
 
-  const renderOperationParams = (operation) => {
-    switch (operation.type) {
-      case OPERATIONS.RESIZE:
-        return (
-          <div className="operation-params">
-            <div className="param-group">
-              <label>Width (px)</label>
-              <input
-                type="number"
-                value={operation.params.width || ''}
-                onChange={(e) => updateOperationParams(operation.id, 'width', e.target.value)}
-                placeholder="Enter width"
-                min="1"
-              />
-            </div>
-            <div className="param-group">
-              <label>Height (px)</label>
-              <input
-                type="number"
-                value={operation.params.height || ''}
-                onChange={(e) => updateOperationParams(operation.id, 'height', e.target.value)}
-                placeholder="Enter height"
-                min="1"
-              />
-            </div>
-            <div className="param-group">
-              <label>Fit Mode</label>
-              <select
-                value={operation.params.fit || 'cover'}
-                onChange={(e) => updateOperationParams(operation.id, 'fit', e.target.value)}
-              >
-                <option value="cover">Cover</option>
-                <option value="contain">Contain</option>
-                <option value="fill">Fill</option>
-                <option value="inside">Inside</option>
-                <option value="outside">Outside</option>
-              </select>
-            </div>
-          </div>
-        );
-      case OPERATIONS.CROP:
-        return (
-          <div className="operation-params">
-            <div className="param-group">
-              <label>X Offset (px)</label>
-              <input
-                type="number"
-                value={operation.params.x || 0}
-                onChange={(e) => updateOperationParams(operation.id, 'x', e.target.value)}
-              />
-            </div>
-            <div className="param-group">
-              <label>Y Offset (px)</label>
-              <input
-                type="number"
-                value={operation.params.y || 0}
-                onChange={(e) => updateOperationParams(operation.id, 'y', e.target.value)}
-              />
-            </div>
-            <div className="param-group">
-              <label>Width (px)</label>
-              <input
-                type="number"
-                value={operation.params.width || ''}
-                onChange={(e) => updateOperationParams(operation.id, 'width', e.target.value)}
-                placeholder="Enter width"
-                min="1"
-              />
-            </div>
-            <div className="param-group">
-              <label>Height (px)</label>
-              <input
-                type="number"
-                value={operation.params.height || ''}
-                onChange={(e) => updateOperationParams(operation.id, 'height', e.target.value)}
-                placeholder="Enter height"
-                min="1"
-              />
-            </div>
-          </div>
-        );
-      case OPERATIONS.FORMAT_CONVERT:
-        return (
-          <div className="operation-params">
-            <div className="param-group">
-              <label>Output Format</label>
-              <select
-                value={operation.params.format || 'jpeg'}
-                onChange={(e) => updateOperationParams(operation.id, 'format', e.target.value)}
-              >
-                <option value="jpeg">JPEG</option>
-                <option value="png">PNG</option>
-                <option value="webp">WebP</option>
-                <option value="avif">AVIF</option>
-                <option value="tiff">TIFF</option>
-              </select>
-            </div>
-            <div className="param-group">
-              <label>Quality (1-100)</label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={operation.params.quality || 80}
-                onChange={(e) => updateOperationParams(operation.id, 'quality', e.target.value)}
-              />
-            </div>
-          </div>
-        );
-      case OPERATIONS.OPTIMIZE:
-        return (
-          <div className="operation-params">
-            <div className="param-group">
-              <label>Optimization Level</label>
-              <select
-                value={operation.params.level || 'balanced'}
-                onChange={(e) => updateOperationParams(operation.id, 'level', e.target.value)}
-              >
-                <option value="low">Low (faster)</option>
-                <option value="balanced">Balanced</option>
-                <option value="high">High (slower)</option>
-              </select>
-            </div>
-            <div className="param-group">
-              <label>Remove Metadata</label>
-              <input
-                type="checkbox"
-                checked={operation.params.removeMetadata || false}
-                onChange={(e) => updateOperationParams(operation.id, 'removeMetadata', e.target.checked)}
-              />
-            </div>
-          </div>
-        );
-      case OPERATIONS.THUMBNAIL:
-        return (
-          <div className="operation-params">
-            <div className="param-group">
-              <label>Size (px)</label>
-              <input
-                type="number"
-                value={operation.params.size || 150}
-                onChange={(e) => updateOperationParams(operation.id, 'size', e.target.value)}
-                min="10"
-              />
-            </div>
-          </div>
-        );
-      default:
-        return <p className="text-muted">No parameters for this operation</p>;
-    }
-  };
+        {error && <div className="alert alert-error">{error}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
 
-  return (
-    <div className="pipeline-editor-container">
-      <div className="editor-header">
-        <h2>Pipeline Editor</h2>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowForm(!showForm)}
-          disabled={loading}
-        >
-          {showForm ? 'Cancel' : '+ Create New Pipeline'}
-        </button>
+        <div className="templates-section">
+          <h3>Quick Start Templates</h3>
+          <div className="template-grid">
+            {Object.entries(PRESET_TEMPLATES).map(([key, template]) => (
+              <button
+                key={key}
+                className="template-card"
+                onClick={() => handleApplyTemplate(key)}
+              >
+                <div className="template-name">{template.name}</div>
+                <div className="template-desc">{template.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="pipelines-section">
+          <h3>Your Pipelines ({pipelines.length})</h3>
+          {pipelines.length === 0 ? (
+            <p className="empty-message">No pipelines yet. Create one or use a template above!</p>
+          ) : (
+            <div className="pipeline-list">
+              {pipelines.map((pipeline) => {
+                const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
+                return (
+                  <div key={pipeline.id} className="pipeline-item">
+                    <div className="pipeline-info">
+                      <h4>{pipeline.name}</h4>
+                      <p className="pipeline-type">{config.type === PIPELINE_TYPES.SINGLE_ASSET ? 'Single Asset' : 'Multi Asset'}</p>
+                      {config.description && <p className="pipeline-desc">{config.description}</p>}
+                    </div>
+                    <div className="pipeline-actions">
+                      <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+    );
+  }
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+  // Render single-asset editor
+  if (mode === 'create-single') {
+    return (
+      <div className="pipeline-editor">
+        <div className="editor-header">
+          <h2>{editingId ? 'Edit' : 'Create'} Single Asset Pipeline</h2>
+          <button className="btn btn-secondary" onClick={() => { setMode('list'); setEditingId(null); }}>
+            Back to List
+          </button>
+        </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="pipeline-form card">
-          <h3>{editingId ? 'Edit Pipeline' : 'Create New Pipeline'}</h3>
+        {error && <div className="alert alert-error">{error}</div>}
 
-          {/* Basic Info */}
+        <form onSubmit={handleSaveSingleAsset} className="pipeline-form">
           <div className="form-section">
-            <h4>Basic Information</h4>
+            <h3>Basic Information</h3>
+            
             <div className="form-group">
               <label>Pipeline Name *</label>
               <input
                 type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="e.g., Product Photos - Web"
+                value={singleAssetForm.name}
+                onChange={(e) => setSingleAssetForm({...singleAssetForm, name: e.target.value})}
+                placeholder="e.g., Web Standard"
                 required
               />
             </div>
 
+            <div className="form-group">
+              <label>Description</label>
+              <input
+                type="text"
+                value={singleAssetForm.description}
+                onChange={(e) => setSingleAssetForm({...singleAssetForm, description: e.target.value})}
+                placeholder="What is this pipeline for?"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Output Suffix</label>
+              <input
+                type="text"
+                value={singleAssetForm.suffix}
+                onChange={(e) => setSingleAssetForm({...singleAssetForm, suffix: e.target.value})}
+                placeholder="e.g., _web"
+              />
+              <small>Added to filename before extension</small>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3>Sizing & Dimensions</h3>
+
             <div className="form-row">
               <div className="form-group">
-                <label>Type</label>
+                <label>Aspect Ratio</label>
                 <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
+                  value={singleAssetForm.sizing.aspectRatio || ''}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    sizing: {...singleAssetForm.sizing, aspectRatio: e.target.value || null}
+                  })}
                 >
-                  <option value={PIPELINE_TYPES.SINGLE_ASSET}>Single Asset</option>
-                  <option value={PIPELINE_TYPES.MULTI_ASSET}>Multi Asset</option>
+                  {ASPECT_RATIOS.map(ar => (
+                    <option key={ar.value} value={ar.value || ''}>{ar.label}</option>
+                  ))}
                 </select>
               </div>
+
               <div className="form-group">
-                <label>Customer ID</label>
+                <label>Width (pixels)</label>
                 <input
-                  type="text"
-                  name="customer_id"
-                  value={formData.customer_id}
-                  onChange={handleInputChange}
+                  type="number"
+                  value={singleAssetForm.sizing.width || ''}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    sizing: {...singleAssetForm.sizing, width: e.target.value ? parseInt(e.target.value) : null}
+                  })}
+                  min="1"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Operations */}
-          <div className="form-section">
-            <div className="section-header">
-              <h4>Processing Operations</h4>
-              <button
-                type="button"
-                className="btn btn-sm btn-success"
-                onClick={addOperation}
-              >
-                + Add Operation
-              </button>
-            </div>
-
-            {formData.operations.length === 0 ? (
-              <p className="text-muted">No operations added yet. Click "Add Operation" to start.</p>
-            ) : (
-              <div className="operations-list">
-                {formData.operations.map((operation, index) => (
-                  <div key={operation.id} className="operation-card">
-                    <div className="operation-header">
-                      <span className="operation-index">Step {index + 1}</span>
-                      <div className="operation-controls">
-                        <label className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={operation.enabled}
-                            onChange={(e) => updateOperation(operation.id, { enabled: e.target.checked })}
-                          />
-                          Enabled
-                        </label>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger"
-                          onClick={() => removeOperation(operation.id)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="operation-type">
-                      <label>Operation Type</label>
-                      <select
-                        value={operation.type}
-                        onChange={(e) => updateOperation(operation.id, { type: e.target.value })}
-                      >
-                        {Object.entries(OPERATIONS).map(([key, value]) => (
-                          <option key={value} value={value}>
-                            {key.replace(/_/g, ' ')}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {renderOperationParams(operation)}
-                  </div>
-                ))}
+              <div className="form-group">
+                <label>Height (pixels)</label>
+                <input
+                  type="number"
+                  value={singleAssetForm.sizing.height || ''}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    sizing: {...singleAssetForm.sizing, height: e.target.value ? parseInt(e.target.value) : null}
+                  })}
+                  min="1"
+                />
               </div>
-            )}
+
+              <div className="form-group">
+                <label>DPI (Metadata)</label>
+                <input
+                  type="number"
+                  value={singleAssetForm.sizing.dpi}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    sizing: {...singleAssetForm.sizing, dpi: parseInt(e.target.value)}
+                  })}
+                  min="1"
+                />
+                <small>Does not resample, only sets pixel density metadata</small>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={singleAssetForm.sizing.resampleIfNeeded}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    sizing: {...singleAssetForm.sizing, resampleIfNeeded: e.target.checked}
+                  })}
+                />
+                Allow upsampling if image is too small
+              </label>
+            </div>
           </div>
 
-          {/* Form Actions */}
+          <div className="form-section">
+            <h3>Format & Quality</h3>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Format</label>
+                <select
+                  value={singleAssetForm.format.type}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    format: {...singleAssetForm.format, type: e.target.value}
+                  })}
+                >
+                  {IMAGE_FORMATS.map(fmt => (
+                    <option key={fmt.value} value={fmt.value}>{fmt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Quality (1-100)</label>
+                <input
+                  type="number"
+                  value={singleAssetForm.format.quality}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    format: {...singleAssetForm.format, quality: parseInt(e.target.value)}
+                  })}
+                  min="1"
+                  max="100"
+                />
+                <small>Balance between file size and quality</small>
+              </div>
+
+              {singleAssetForm.format.type === 'png' && (
+                <div className="form-group">
+                  <label>Compression (1-9)</label>
+                  <input
+                    type="number"
+                    value={singleAssetForm.format.compression}
+                    onChange={(e) => setSingleAssetForm({
+                      ...singleAssetForm,
+                      format: {...singleAssetForm.format, compression: parseInt(e.target.value)}
+                    })}
+                    min="1"
+                    max="9"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3>Color & ICC Profile</h3>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>ICC Profile Handling</label>
+                <select
+                  value={singleAssetForm.color.changeICC}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    color: {...singleAssetForm.color, changeICC: e.target.value}
+                  })}
+                >
+                  {ICC_OPERATIONS.map(op => (
+                    <option key={op.value} value={op.value}>{op.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {['assign', 'convert'].includes(singleAssetForm.color.changeICC) && (
+                <div className="form-group">
+                  <label>Destination ICC Profile</label>
+                  <select
+                    value={singleAssetForm.color.destICC}
+                    onChange={(e) => setSingleAssetForm({
+                      ...singleAssetForm,
+                      color: {...singleAssetForm.color, destICC: e.target.value}
+                    })}
+                  >
+                    {ICC_PROFILES.map(prof => (
+                      <option key={prof.value} value={prof.value}>{prof.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>ICC Embedding</label>
+                <select
+                  value={singleAssetForm.iccHandling}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    iccHandling: e.target.value
+                  })}
+                >
+                  {ICC_HANDLING.map(hand => (
+                    <option key={hand.value} value={hand.value}>{hand.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={singleAssetForm.color.gammaCorrect}
+                  onChange={(e) => setSingleAssetForm({
+                    ...singleAssetForm,
+                    color: {...singleAssetForm.color, gammaCorrect: e.target.checked}
+                  })}
+                />
+                Apply Gamma Correction
+              </label>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3>Transparency & Background</h3>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={singleAssetForm.transparency.preserve}
+                    onChange={(e) => setSingleAssetForm({
+                      ...singleAssetForm,
+                      transparency: {...singleAssetForm.transparency, preserve: e.target.checked}
+                    })}
+                  />
+                  Preserve Transparency
+                </label>
+              </div>
+
+              {!singleAssetForm.transparency.preserve && (
+                <div className="form-group">
+                  <label>Background Color</label>
+                  <input
+                    type="text"
+                    value={singleAssetForm.transparency.background}
+                    onChange={(e) => setSingleAssetForm({
+                      ...singleAssetForm,
+                      transparency: {...singleAssetForm.transparency, background: e.target.value}
+                    })}
+                    placeholder="#FFFFFF"
+                  />
+                  <small>Hex color in active ICC profile</small>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Saving...' : editingId ? 'Update Pipeline' : 'Create Pipeline'}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={handleReset} disabled={loading}>
-              Reset
+            <button type="button" className="btn btn-secondary" onClick={() => { setMode('list'); setEditingId(null); }}>
+              Cancel
             </button>
           </div>
         </form>
-      )}
-
-      {/* Pipelines List */}
-      <div className="pipelines-list">
-        <h3>Existing Pipelines ({pipelines.length})</h3>
-        {pipelines.length === 0 ? (
-          <p className="text-muted">No pipelines created yet. Create one to get started!</p>
-        ) : (
-          <div className="pipeline-cards">
-            {pipelines.map(pipeline => {
-              const config = typeof pipeline.config === 'string' 
-                ? JSON.parse(pipeline.config) 
-                : pipeline.config;
-              
-              return (
-                <div key={pipeline.id} className="pipeline-card">
-                  <div className="card-header">
-                    <h4>{pipeline.name}</h4>
-                    <span className="badge">{config.operations?.length || 0} ops</span>
-                  </div>
-
-                  <div className="card-body">
-                    <p><strong>Type:</strong> {config.type || 'single_asset'}</p>
-                    <p><strong>Customer:</strong> {pipeline.customer_id}</p>
-                    <p><strong>Created:</strong> {new Date(pipeline.created_at).toLocaleDateString()}</p>
-
-                    <div className="operations-summary">
-                      <strong>Operations:</strong>
-                      <ul>
-                        {config.operations?.map((op, idx) => (
-                          <li key={idx}>
-                            {idx + 1}. {op.type.replace(/_/g, ' ').toUpperCase()}
-                            {!op.enabled && ' (disabled)'}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="card-actions">
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={() => handleEdit(pipeline)}
-                      disabled={loading}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleDelete(pipeline.id)}
-                      disabled={loading}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Render multi-asset editor (placeholder for now)
+  if (mode === 'create-multi') {
+    return (
+      <div className="pipeline-editor">
+        <div className="editor-header">
+          <h2>Multi-Asset Pipeline</h2>
+          <button className="btn btn-secondary" onClick={() => { setMode('list'); setEditingId(null); }}>
+            Back to List
+          </button>
+        </div>
+
+        {error && <div className="alert alert-error">{error}</div>}
+
+        <form className="pipeline-form">
+          <div className="form-section">
+            <h3>Basic Information</h3>
+            <div className="form-group">
+              <label>Pipeline Name *</label>
+              <input
+                type="text"
+                value={multiAssetForm.name}
+                onChange={(e) => setMultiAssetForm({...multiAssetForm, name: e.target.value})}
+                placeholder="e.g., Product Assets"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Description</label>
+              <input
+                type="text"
+                value={multiAssetForm.description}
+                onChange={(e) => setMultiAssetForm({...multiAssetForm, description: e.target.value})}
+                placeholder="What assets does this pipeline create?"
+              />
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3>Output Organization</h3>
+            <div className="output-arrangement">
+              {OUTPUT_ARRANGEMENTS.map((arr) => (
+                <label key={arr.value} className="arrangement-option">
+                  <input
+                    type="radio"
+                    value={arr.value}
+                    checked={multiAssetForm.outputArrangement === arr.value}
+                    onChange={(e) => setMultiAssetForm({...multiAssetForm, outputArrangement: e.target.value})}
+                  />
+                  <div className="arrangement-label">
+                    <strong>{arr.label}</strong>
+                    <small>{arr.description}</small>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3>Pipeline Components</h3>
+            <p className="info">Multi-asset pipelines compose multiple single-asset pipelines. Each input file generates one output per component.</p>
+            {/* Component selection UI coming soon */}
+            <p className="placeholder">Component selection UI - coming in next iteration</p>
+          </div>
+
+          <div className="form-actions">
+            <button type="button" className="btn btn-secondary" onClick={() => { setMode('list'); setEditingId(null); }}>
+              Back
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 }
 
 export default PipelineEditor;
