@@ -178,26 +178,30 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
         })
       );
 
-      // Extract customer prefix for batch grouping
-      const customerPrefix = extractCustomerPrefix(selectedFiles.map(f => f.name));
+      // Parse pipeline_id as integer
+      const pipelineId = parseInt(selectedPipeline, 10);
 
       // Use batch endpoint if multiple files, otherwise use single endpoint
       const endpoint = selectedFiles.length > 1 ? '/jobs/batch' : '/jobs';
-      const payload = selectedFiles.length > 1
-        ? { 
-            pipeline_id: selectedPipeline, 
-            files: filesData,
-            batch_description: batchDescription || undefined,
-            customer_prefix: customerPrefix,
-          }
-        : {
-            pipeline_id: selectedPipeline,
-            ...filesData[0],
-            batch_description: batchDescription || undefined,
-            customer_prefix: customerPrefix,
-          };
+      
+      let payload;
+      if (selectedFiles.length > 1) {
+        payload = {
+          pipeline_id: pipelineId,
+          files: filesData,
+          batch_description: batchDescription || undefined,
+        };
+      } else {
+        // Single file submission
+        payload = {
+          pipeline_id: pipelineId,
+          file_name: filesData[0].file_name,
+          file_data: filesData[0].file_data,
+          batch_description: batchDescription || undefined,
+        };
+      }
 
-      const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}${endpoint}`;
+      const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api${endpoint}`;
       
       const response = await fetch(url, {
         method: 'POST',
@@ -206,7 +210,8 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
       }
 
       const result = await response.json();

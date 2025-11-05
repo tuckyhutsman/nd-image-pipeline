@@ -1,0 +1,242 @@
+/* frontend/src/components/SliderWithHint.css */
+/* Enhanced slider with dynamic algorithm hints and color feedback */
+
+.slider-with-hint {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 0;
+}
+
+.slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.slider-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.slider-value-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  height: 40px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 0 0.75rem;
+}
+
+.slider-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: color 0.1s ease;
+}
+
+/* Slider Input Styling */
+.slider-container {
+  margin: 1rem 0;
+}
+
+.slider-input {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #FF9500 0%, #0066CC 50%, #34C759 100%);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Thumb styling - cross-browser */
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid currentColor;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.slider-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.slider-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid currentColor;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.slider-input::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Track styling */
+.slider-input::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+.slider-input::-moz-range-progress {
+  background: linear-gradient(to right, #FF9500 0%, #0066CC 50%, #34C759 100%);
+  height: 8px;
+  border-radius: 4px;
+}
+
+/* Focus state */
+.slider-input:focus {
+  outline: none;
+}
+
+.slider-input:focus-visible {
+  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+}
+
+/* Hint Display */
+.slider-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+
+.hint-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hint-algorithm {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: color 0.1s ease;
+}
+
+.hint-label {
+  color: #666;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: color 0.1s ease;
+}
+
+/* Tradeoff Badge */
+.hint-tradeoff {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  border: 1.5px solid;
+  transition: all 0.1s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hint-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Description Text */
+.slider-description {
+  display: block;
+  margin-top: 0.5rem;
+  color: #999;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .slider-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .slider-hint {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hint-tradeoff {
+    align-self: flex-start;
+  }
+
+  .slider-value-box {
+    min-width: 45px;
+    height: 35px;
+    font-size: 0.95rem;
+  }
+
+  .slider-value {
+    font-size: 1.1rem;
+  }
+}
+
+/* Animation for color transitions */
+@keyframes slideColorPulse {
+  0% {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  100% {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+}
+
+.slider-input:active::-webkit-slider-thumb,
+.slider-input:active::-moz-range-thumb {
+  animation: slideColorPulse 0.3s ease-out;
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  .slider-value-box {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  .slider-label,
+  .hint-left {
+    color: #e0e0e0;
+  }
+
+  .hint-label {
+    color: #999;
+  }
+
+  .slider-description {
+    color: #666;
+  }
+}
