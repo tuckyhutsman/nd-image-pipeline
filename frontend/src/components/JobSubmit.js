@@ -13,6 +13,9 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
   const MAX_BATCH_SIZE = 100;
 
+  // Reference for file input
+  const fileInputRef = React.useRef(null);
+
   // Validate file
   const validateFile = (file) => {
     if (!ACCEPTED_FORMATS.includes(file.type)) {
@@ -76,6 +79,13 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
     const files = Array.from(e.dataTransfer.files || []);
     processFiles(files);
   }, [selectedFiles]);
+
+  // Handle click on drop zone to open file picker
+  const handleDropZoneClick = () => {
+    if (fileInputRef.current && !isLoading) {
+      fileInputRef.current.click();
+    }
+  };
 
   // Remove file from selection
   const removeFile = (index) => {
@@ -195,6 +205,15 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
+          onClick={handleDropZoneClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleDropZoneClick();
+            }
+          }}
+          style={{ cursor: isLoading ? 'default' : 'pointer' }}
         >
           <div className="drag-drop-content">
             <svg className="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -209,6 +228,7 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
               Supported: JPEG, PNG, WebP, TIFF (max 50MB each)
             </p>
             <input
+              ref={fileInputRef}
               type="file"
               multiple
               accept={ACCEPTED_FORMATS.join(',')}

@@ -286,11 +286,16 @@ function PipelineEditor() {
 
       setEditingId(null);
       setMode('list');
-      fetchPipelines();
+      
+      // Refresh pipelines list
+      await fetchPipelines();
+      
       setTimeout(() => setSuccess(''), 1500);
       
-      // Refresh page to update pipeline dropdowns in other components (Q4)
-      setTimeout(() => window.location.reload(), 1800);
+      // FIX #2: Refresh page after 2 seconds so pipelines appear in job submit dropdown
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (err) {
       setError('Error saving pipeline: ' + err.message);
     } finally {
@@ -730,7 +735,7 @@ function PipelineEditor() {
           <div className="form-section">
             <h3>Transparency & Background</h3>
 
-            {/* Only show transparency controls for formats that support it (Q2) */}
+            {/* FIX #3: Only show transparency controls for formats that support it */}
             {['png', 'png8', 'webp'].includes(singleAssetForm.format.type) ? (
               <>
                 <div className="form-group">

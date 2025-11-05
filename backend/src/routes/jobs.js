@@ -39,21 +39,29 @@ router.get('/:id', async (req, res) => {
 });
 
 // GET /api/jobs/:id/download - Download job outputs as ZIP or single file
+// FIX #5: Excludes input_* files from downloads
 router.get('/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
-    const job = await db.query('SELECT * FROM jobs WHERE id = $1', [id]);
+    const job = await global.db.query('SELECT * FROM jobs WHERE id = $1', [id]);
     
     if (job.rows.length === 0) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
     const outputDir = path.join(OUTPUT_PATH, id);
-    const files = fs.readdirSync(outputDir);
+    
+    // Get all files and filter out input_* files
+    const allFiles = fs.readdirSync(outputDir);
+    const outputFiles = allFiles.filter(file => !file.startsWith('input_'));
 
-    if (files.length === 1) {
+    if (outputFiles.length === 0) {
+      return res.status(404).json({ error: 'No output files found for this job' });
+    }
+
+    if (outputFiles.length === 1) {
       // Single file - download directly
-      const filename = files[0];
+      const filename = outputFiles[0];
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Type', 'application/octet-stream');
       res.sendFile(path.join(outputDir, filename));
@@ -66,7 +74,7 @@ router.get('/:id/download', async (req, res) => {
       const archive = archiver('zip', { zlib: { level: 9 } });
       archive.pipe(res);
       
-      files.forEach(file => {
+      outputFiles.forEach(file => {
         archive.file(path.join(outputDir, file), { name: file });
       });
       
