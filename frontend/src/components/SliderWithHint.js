@@ -9,10 +9,10 @@ import './SliderWithHint.css';
  * SliderWithHint Component
  * 
  * Clean slider design with continuous color feedback:
- * - Slider thumb, value box, and hint text all change color together
+ * - Slider thumb, value box, hint text, and label all change color together
  * - Color interpolates smoothly between algorithm breakpoints
- * - Algorithm name in bold monospace
- * - Performance badge with outline
+ * - Algorithm name and description in bold monospace (colored)
+ * - Performance badge with outline (colored)
  */
 const SliderWithHint = ({
   value,
@@ -52,7 +52,7 @@ const SliderWithHint = ({
         />
       </div>
 
-      {/* Hint Display: Algorithm + Badge (LEFT) | Value Box (RIGHT) */}
+      {/* Hint Display: Algorithm + Description + Badge (LEFT) | Value Box (RIGHT) */}
       <div className="slider-hint-row">
         <div className="hint-left">
           <span
@@ -61,7 +61,12 @@ const SliderWithHint = ({
           >
             {currentHint.algorithm}
           </span>
-          <span className="hint-label">{currentHint.label}</span>
+          <span 
+            className="hint-label"
+            style={{ color }}
+          >
+            {currentHint.label}
+          </span>
           <span
             className="hint-badge"
             style={{
