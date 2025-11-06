@@ -1,5 +1,5 @@
 // Slider Hint Configuration - Maps value ranges to algorithm info with color gradients
-// Colors: Green (fastest) → Blue (balanced) → Orange → Red (slowest/smallest)
+// Colors: Green (fastest) → Orange/Red (slowest)
 // Color scheme driven by actual algorithmic transitions in worker.js
 
 /**
@@ -9,6 +9,7 @@
 
 // PNG COMPRESSION HINTS (0-100 scale)
 // 3 distinct algorithms: Sharp → pngcrush-max → pngcrush-brute
+// Color progression: Green → Orange (no blue)
 export const PNG_COMPRESSION_HINTS = {
   ranges: [
     {
@@ -26,7 +27,7 @@ export const PNG_COMPRESSION_HINTS = {
       label: 'pngcrush maximum compression',
       sublabel: 'high compression',
       algorithm: 'pngcrush',
-      color: '#0066CC', // Blue
+      color: '#FF9500', // Orange (was blue - removed to avoid flicker)
       weight: 'regular',
     },
     {
@@ -35,7 +36,7 @@ export const PNG_COMPRESSION_HINTS = {
       label: 'pngcrush brute force compression',
       sublabel: 'slowest/smallest',
       algorithm: 'pngcrush',
-      color: '#FF6600', // Orange-Red
+      color: '#FF3333', // Red
       weight: 'regular',
     },
   ],
