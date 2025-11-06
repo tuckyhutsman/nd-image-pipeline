@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import apiClient from '../config/api';
 import './JobSubmit.css';
 
 const JobSubmit = ({ pipelines, onJobSubmitted }) => {
@@ -201,20 +202,8 @@ const JobSubmit = ({ pipelines, onJobSubmitted }) => {
         };
       }
 
-      const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api${endpoint}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`HTTP ${response.status}: ${errorData.error || response.statusText}`);
-      }
-
-      const result = await response.json();
+      const response = await apiClient.post(endpoint, payload);
+      const result = response.data;
 
       // Clear selection
       setSelectedFiles([]);

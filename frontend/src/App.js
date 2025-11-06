@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import PipelineEditor from './components/PipelineEditor';
 import JobSubmit from './components/JobSubmit';
 import JobList from './components/JobList';
+import apiClient from './config/api';
 import './App.css';
 import './components/PipelineEditor.css';
-
-const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('submit');
@@ -24,7 +22,7 @@ function App() {
 
   const fetchPipelines = async () => {
     try {
-      const response = await axios.get(`${API_URL}/pipelines`);
+      const response = await apiClient.get('/pipelines');
       setPipelines(response.data);
     } catch (err) {
       console.error('Error fetching pipelines:', err);
@@ -33,7 +31,7 @@ function App() {
 
   const fetchJobs = async () => {
     try {
-      const response = await axios.get(`${API_URL}/jobs`);
+      const response = await apiClient.get('/jobs');
       setJobs(response.data);
     } catch (err) {
       console.error('Error fetching jobs:', err);

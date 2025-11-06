@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+import apiClient from '../config/api';
 
 function PipelineList({ pipelines, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
@@ -11,7 +9,7 @@ function PipelineList({ pipelines, onRefresh }) {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/pipelines`, {
+      await apiClient.post('/pipelines', {
         name,
         customer_id: 'default',
         config: JSON.parse(config),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import apiClient from '../config/api';
 import './PipelineEditor.css';
 import SliderWithHint from './SliderWithHint';
 import {
@@ -10,8 +10,6 @@ import {
   WEBP_QUALITY_HINTS,
   WEBP_COMPRESSION_HINTS,
 } from '../utils/sliderHints';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 // Pipeline types
 const PIPELINE_TYPES = {
@@ -246,7 +244,7 @@ function PipelineEditor({ onPipelineSaved }) {
 
   const fetchPipelines = async () => {
     try {
-      const response = await axios.get(`${API_URL}/pipelines`);
+      const response = await apiClient.get('/pipelines');
       setPipelines(response.data);
     } catch (err) {
       setError('Failed to load pipelines: ' + err.message);
@@ -275,10 +273,10 @@ function PipelineEditor({ onPipelineSaved }) {
       };
 
       if (editingId) {
-        await axios.put(`${API_URL}/pipelines/${editingId}`, payload);
+        await apiClient.put(`/pipelines/${editingId}`, payload);
         setSuccess('Pipeline updated');
       } else {
-        await axios.post(`${API_URL}/pipelines`, payload);
+        await apiClient.post('/pipelines', payload);
         setSuccess('Pipeline created');
       }
 
@@ -364,7 +362,7 @@ function PipelineEditor({ onPipelineSaved }) {
     if (!window.confirm('Delete this pipeline?')) return;
 
     try {
-      await axios.delete(`${API_URL}/pipelines/${id}`);
+      await apiClient.delete(`/pipelines/${id}`);
       setSuccess('Pipeline deleted');
       fetchPipelines();
       setTimeout(() => setSuccess(''), 2000);

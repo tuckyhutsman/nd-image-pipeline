@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildFullUrl } from '../config/api';
 import './JobList.css';
 
 const JobList = ({ jobs, onRefresh }) => {
@@ -16,7 +17,8 @@ const JobList = ({ jobs, onRefresh }) => {
     try {
       setDownloadingJobs(prev => new Set(prev).add(jobId));
 
-      const url = `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/jobs/${jobId}/download`;
+      // Note: Download endpoint needs full URL for browser download
+      const url = buildFullUrl(`/api/jobs/${jobId}/download`);
       
       const response = await fetch(url);
 
