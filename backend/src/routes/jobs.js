@@ -36,6 +36,7 @@ router.get('/', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
+    console.error('Error fetching jobs:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -44,7 +45,7 @@ router.get('/', async (req, res) => {
 router.get('/batch/:batch_id', async (req, res) => {
   try {
     const result = await global.db.query(
-      `SELECT id, pipeline_id, status, file_name, created_at, updated_at 
+      `SELECT id, pipeline_id, status, input_filename, created_at, updated_at 
        FROM jobs 
        WHERE batch_id = $1 
        ORDER BY created_at ASC`,
@@ -52,6 +53,7 @@ router.get('/batch/:batch_id', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
+    console.error('Error fetching batch jobs:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -68,6 +70,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
+    console.error('Error fetching job:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -112,7 +115,7 @@ router.get('/:id/download', async (req, res) => {
     }
 
     const job = jobResult.rows[0];
-    const inputFileName = job.file_name;
+    const inputFileName = job.input_filename;
     
     console.log(`[DOWNLOAD] Job ID: ${id}, Input file: ${inputFileName}, Pipeline ID: ${job.pipeline_id}`);
     
@@ -186,7 +189,7 @@ router.get('/:id/download', async (req, res) => {
 
 // POST /api/jobs - Submit single job (creates or joins batch)
 router.post('/', async (req, res) => {
-  const { pipeline_id, file_name, file_data, batch_description, customer_prefix } = req.body;
+  const { pipeline_id, file_name, file_data, batch_description } = req.body;
   const job_id = uuid();
 
   try {
@@ -206,9 +209,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: `Batch creation failed: ${batchErr.message}` });
     }
 
-    // Create job tied to batch
+    // Create job tied to batch - FIXED: use input_filename and input_base64
     await global.db.query(
-      `INSERT INTO jobs (id, batch_id, pipeline_id, status, file_name, input_data) 
+      `INSERT INTO jobs (id, batch_id, pipeline_id, status, input_filename, input_base64) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [job_id, batchId, pipeline_id, 'queued', file_name, file_data]
     );
@@ -263,14 +266,14 @@ router.post('/batch', async (req, res) => {
       return res.status(400).json({ error: `Batch creation failed: ${batchErr.message}` });
     }
 
-    // Create jobs for all files
+    // Create jobs for all files - FIXED: use input_filename and input_base64
     const jobIds = [];
     for (const file of files) {
       const { file_name, file_data } = file;
       const job_id = uuid();
 
       await global.db.query(
-        `INSERT INTO jobs (id, batch_id, pipeline_id, status, file_name, input_data) 
+        `INSERT INTO jobs (id, batch_id, pipeline_id, status, input_filename, input_base64) 
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [job_id, batch.id, pipeline_id, 'queued', file_name, file_data]
       );
@@ -350,6 +353,7 @@ router.get('/stats/dashboard', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
+    console.error('Error fetching dashboard stats:', err);
     res.status(500).json({ error: err.message });
   }
 });
