@@ -90,34 +90,62 @@ const SliderWithHint = ({
 };
 
 /**
- * Interpolate color between range breakpoints for smooth transitions
+ * FIXED: Interpolate color based on slider position across ALL ranges
+ * 
+ * The key insight: We need to interpolate between BREAKPOINTS, not within ranges.
+ * 
+ * Example with 3 ranges:
+ * Range 1: 0-70   (Green)
+ * Range 2: 71-85  (Blue) 
+ * Range 3: 86-100 (Red)
+ * 
+ * Color stops at: 0 (Green), 70 (Green), 85 (Blue), 100 (Red)
+ * 
+ * At value 75 (middle of range 2):
+ * - We're between stops 70 (Green) and 85 (Blue)
+ * - Progress: (75-70)/(85-70) = 5/15 = 0.33
+ * - Color: 33% between Green and Blue
  */
 function interpolateColor(value, hintConfig) {
   const { ranges } = hintConfig;
   
-  // Find current range
-  const currentRange = ranges.find(r => value >= r.min && value <= r.max);
-  if (!currentRange) return ranges[0].color;
+  // Build color stops from ranges (at max of each range)
+  const colorStops = ranges.map((range, index) => ({
+    position: range.max,
+    color: range.color,
+    isLast: index === ranges.length - 1,
+  }));
   
-  // If at boundaries or single-color range, return exact color
-  if (ranges.length === 1 || value === currentRange.min || value === currentRange.max) {
-    return currentRange.color;
+  // Add a stop at position 0 with first color
+  colorStops.unshift({
+    position: 0,
+    color: ranges[0].color,
+    isLast: false,
+  });
+  
+  // Find the two stops we're between
+  let startStop = colorStops[0];
+  let endStop = colorStops[1];
+  
+  for (let i = 0; i < colorStops.length - 1; i++) {
+    if (value >= colorStops[i].position && value <= colorStops[i + 1].position) {
+      startStop = colorStops[i];
+      endStop = colorStops[i + 1];
+      break;
+    }
   }
   
-  // Find next range for interpolation
-  const currentIndex = ranges.findIndex(r => r === currentRange);
-  const nextRange = ranges[currentIndex + 1];
+  // If we're exactly at a stop, return that color
+  if (value === startStop.position) return startStop.color;
+  if (value === endStop.position) return endStop.color;
   
-  // If no next range, return current color
-  if (!nextRange) return currentRange.color;
+  // Calculate interpolation factor between the two stops
+  const range = endStop.position - startStop.position;
+  const position = value - startStop.position;
+  const factor = position / range;
   
-  // Calculate interpolation factor (0 to 1) within current range
-  const rangeSize = currentRange.max - currentRange.min;
-  const positionInRange = value - currentRange.min;
-  const factor = positionInRange / rangeSize;
-  
-  // Interpolate between current and next color
-  return lerpColor(currentRange.color, nextRange.color, factor);
+  // Interpolate between the two colors
+  return lerpColor(startStop.color, endStop.color, factor);
 }
 
 /**
