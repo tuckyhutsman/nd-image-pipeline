@@ -1,55 +1,52 @@
 #!/bin/bash
-# Deployment script for slider hint system updates
+# Git deployment script for database fix + slider system
 
-echo "🚀 Deploying Slider Hint System to nd-image-pipeline"
-echo ""
+cd /Users/robertcampbell/Developer/nd-image-pipeline
 
-# Step 1: Commit changes
-echo "📝 Committing changes..."
+echo "📦 Staging all changes..."
 git add .
-git commit -m "feat: implement data-driven slider hint system with algorithm feedback
 
-Changes:
-- Add SliderWithHint component with Green→Red color scheme reflecting processing intensity
-- Integrate enhanced sliders into PipelineEditor for all image formats
-- PNG 24-bit: 3 algorithms (Sharp → pngcrush-max → pngcrush-brute)
-- PNG8: 2 algorithms (Sharp → pngquant)
-- JPEG: 4 quantization levels with separate Quality/Compression sliders
-- WebP: 6 effort levels with Quality/Effort sliders
-- Fix HTTP 400 error in JobSubmit (pipeline_id integer parsing)
-- Add comprehensive documentation (SLIDER_HINTS_SYSTEM.md, IMPLEMENTATION_COMPLETE.md)
+echo "📝 Creating commit..."
+git commit -m "Fix database initialization and complete slider hint system
 
-Visual improvements:
-- Dynamic color feedback: Green (fast) → Blue (balanced) → Orange/Red (slow)
-- Algorithm names in monospace font with color-coded performance badges
-- Real-time slider hints showing current algorithm and processing tradeoff
-- Smooth color transitions matching actual worker.js algorithm breakpoints
+CRITICAL FIX:
+- Add missing init-db.sql with complete database schema
+- Fixes 'relation batches does not exist' errors
+- Creates pipelines, batches, and jobs tables with proper indexes
 
-Testing:
-- All formats tested with correct algorithm transitions
-- No HTTP errors in job submission
-- Responsive design with dark mode support"
+DATABASE SCHEMA:
+- Complete table definitions with foreign keys
+- Automatic triggers for batch status updates
+- Timestamp triggers for updated_at fields
+- UUID generation for batches and jobs
+- Seed data with default pipeline
 
-echo ""
-echo "✅ Changes committed"
-echo ""
+SLIDER SYSTEM:
+- Implement dynamic slider hint system with temporal color gradients
+- Fix color gradient algorithm using position-based stops (no flickers)
+- 4-color gradient for PNG (Green→Blue→Orange→Red)
+- Bold monospace algorithm names with performance badges
+- Fixed-width value box (60px) with white text
+- Light gray slider track with colored thumb
+- All colored elements transition together smoothly
 
-# Step 2: Push to GitHub
-echo "📤 Pushing to GitHub..."
+BUG FIXES:
+- Fix JobSubmit HTTP 400 error (parse pipeline_id as integer)
+- Fix color interpolation to prevent blue/green flickers
+- Match form-group label styling for consistency
+
+DEPLOYMENT:
+- Requires database reset: docker compose down -v
+- See DATABASE_FIX_DEPLOYMENT.md for instructions"
+
+echo "🚀 Pushing to GitHub..."
 git push origin main
 
+echo "✅ Done! Now deploy on LXC with:"
 echo ""
-echo "✅ Pushed to GitHub"
+echo "  cd ~/image-pipeline-app"
+echo "  git pull origin main"
+echo "  docker compose down -v"
+echo "  docker compose up -d --build"
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "🖥️  Now deploy to production LXC:"
-echo ""
-echo "   ssh user@lxc-host"
-echo "   cd /opt/nd-image-pipeline"
-echo "   git pull origin main"
-echo "   docker compose down"
-echo "   docker compose up -d --build"
-echo "   docker compose logs -f"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⚠️  WARNING: docker compose down -v will delete all existing data!"
