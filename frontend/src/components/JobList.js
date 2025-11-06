@@ -309,6 +309,22 @@ const JobList = ({ jobs, onRefresh }) => {
             </div>
 
             <div className="modal-footer">
+              {getBatchStatus(selectedBatch) === 'completed' && (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => handleDownloadBatch(selectedBatch)}
+                  disabled={downloadingBatches.has(selectedBatch.batch_id)}
+                >
+                  {downloadingBatches.has(selectedBatch.batch_id) ? (
+                    <>
+                      <span className="spinner-small" style={{ marginRight: '8px' }} />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>↓ Download All Files</>
+                  )}
+                </button>
+              )}
               <button className="btn btn-secondary" onClick={() => setSelectedBatchId(null)}>
                 Close
               </button>

@@ -8,6 +8,9 @@ const { v4: uuid } = require('uuid');
  * Examples:
  *   "PL-DXB191_GI_Defense_V1_SF102_Front.png" -> "PL_DXB"
  *   "PL_ABC123_Product_Name_View.jpg" -> "PL_ABC"
+ *   "PL_DXB_Product.png" -> "PL_DXB"
+ * 
+ * Rule: Extract everything up to (but not including) the first digit sequence
  */
 function extractCustomerPrefix(filenames) {
   if (!filenames || filenames.length === 0) return null;
@@ -15,14 +18,24 @@ function extractCustomerPrefix(filenames) {
   // Take first filename and extract prefix
   const firstFile = filenames[0];
   
-  // Match pattern: "PL" (or similar) followed by underscore/hyphen, then alphanumerics
-  // Stops at next underscore or hyphen
-  // E.g., "PL-DXB191" or "PL_ABC"
-  const match = firstFile.match(/^([A-Z]+[_-][A-Z0-9]+?)(?:[_-]|\.)/);
+  // Match pattern: Letters, optional separator, more letters, STOP before first digit
+  // Examples:
+  //   "PL-DXB191" -> captures "PL-DXB" (stops at 191)
+  //   "PL_ABC_View" -> captures "PL_ABC" (stops at underscore before View)
+  //   "ABCDEF" -> captures "ABCDEF" (no separator found)
   
-  if (match) {
+  // Step 1: Match prefix pattern (letters + optional separator + letters)
+  const prefixMatch = firstFile.match(/^([A-Z]+[_-][A-Z]+)/);
+  
+  if (prefixMatch) {
     // Normalize hyphens to underscores and take first 20 chars
-    return match[1].replace('-', '_').substring(0, 20);
+    return prefixMatch[1].replace(/-/g, '_').substring(0, 20);
+  }
+
+  // Fallback: Try to get just the first part before any separator
+  const simpleMatch = firstFile.match(/^([A-Z]+)/);
+  if (simpleMatch) {
+    return simpleMatch[1].substring(0, 20);
   }
 
   return null;
@@ -56,7 +69,7 @@ async function getNextBatchCounter(db, customerPrefix, batchDate) {
  */
 function generateBaseDirName(customerPrefix, batchDate, batchCounter) {
   // Ensure customerPrefix is normalized
-  const normalizedPrefix = customerPrefix.replace('-', '_').toUpperCase();
+  const normalizedPrefix = customerPrefix.replace(/-/g, '_').toUpperCase();
   
   // Format date as YYYY-MM-DD
   const formattedDate = batchDate instanceof Date 
