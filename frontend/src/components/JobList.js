@@ -1,34 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { buildFullUrl } from '../config/api';
+import apiClient, { buildFullUrl } from '../config/api';
 import './JobList.css';
 
 const JobList = ({ jobs, onRefresh }) => {
-  const [downloadingJobs, setDownloadingJobs] = useState(new Set());
-  const [jobsData, setJobsData] = useState(jobs);
-  // ISSUE #3 FIX: Track which job details modal is open
-  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [downloadingBatches, setDownloadingBatches] = useState(new Set());
+  const [batchesData, setBatchesData] = useState(jobs);
+  const [selectedBatchId, setSelectedBatchId] = useState(null);
+  const [batchJobs, setBatchJobs] = useState([]);
+  const [loadingBatchJobs, setLoadingBatchJobs] = useState(false);
 
   useEffect(() => {
-    setJobsData(jobs);
+    setBatchesData(jobs);
   }, [jobs]);
 
-  // Download job outputs
-  const handleDownload = async (jobId) => {
+  // Load jobs for a specific batch
+  const loadBatchJobs = async (batchId) => {
+    setLoadingBatchJobs(true);
     try {
-      setDownloadingJobs(prev => new Set(prev).add(jobId));
+      const response = await apiClient.get(`/jobs/batch/${batchId}`);
+      setBatchJobs(response.data);
+    } catch (err) {
+      console.error('Error loading batch jobs:', err);
+      setBatchJobs([]);
+    } finally {
+      setLoadingBatchJobs(false);
+    }
+  };
+
+  // Download batch outputs (for now, download first completed job)
+  const handleDownloadBatch = async (batch) => {
+    try {
+      setDownloadingBatches(prev => new Set(prev).add(batch.batch_id));
+
+      // Load jobs in the batch to find a completed one
+      const response = await apiClient.get(`/jobs/batch/${batch.batch_id}`);
+      const jobs = response.data;
+      const completedJob = jobs.find(j => j.status === 'completed');
+
+      if (!completedJob) {
+        alert('No completed jobs in this batch yet');
+        return;
+      }
 
       // Note: Download endpoint needs full URL for browser download
-      const url = buildFullUrl(`/api/jobs/${jobId}/download`);
+      const url = buildFullUrl(`/api/jobs/${completedJob.id}/download`);
       
-      const response = await fetch(url);
+      const downloadResponse = await fetch(url);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!downloadResponse.ok) {
+        throw new Error(`HTTP ${downloadResponse.status}: ${downloadResponse.statusText}`);
       }
 
       // Get filename from response headers
-      const contentDisposition = response.headers.get('content-disposition');
-      let filename = 'image-output';
+      const contentDisposition = downloadResponse.headers.get('content-disposition');
+      let filename = `batch-${batch.batch_id.substring(0, 8)}.zip`;
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+?)"?$/);
         if (filenameMatch) {
@@ -37,7 +62,7 @@ const JobList = ({ jobs, onRefresh }) => {
       }
 
       // Create blob and trigger download
-      const blob = await response.blob();
+      const blob = await downloadResponse.blob();
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
       link.download = filename;
@@ -50,9 +75,9 @@ const JobList = ({ jobs, onRefresh }) => {
       console.error('Download failed:', err);
       alert(`Download failed: ${err.message}`);
     } finally {
-      setDownloadingJobs(prev => {
+      setDownloadingBatches(prev => {
         const updated = new Set(prev);
-        updated.delete(jobId);
+        updated.delete(batch.batch_id);
         return updated;
       });
     }
@@ -60,18 +85,12 @@ const JobList = ({ jobs, onRefresh }) => {
 
   // Format date
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  // Calculate duration
-  const formatDuration = (createdAt, updatedAt) => {
-    const start = new Date(createdAt);
-    const end = new Date(updatedAt);
-    const seconds = Math.round((end - start) / 1000);
-    
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    return `${Math.round(seconds / 3600)}h`;
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch {
+      return 'Invalid Date';
+    }
   };
 
   // Get status badge class
@@ -85,14 +104,27 @@ const JobList = ({ jobs, onRefresh }) => {
     return statusMap[status] || 'status-unknown';
   };
 
-  // ISSUE #3 FIX: Find selected job for modal
-  const selectedJob = selectedJobId ? jobsData.find(job => job.id === selectedJobId) : null;
+  // Calculate overall batch status
+  const getBatchStatus = (batch) => {
+    if (batch.failed_count > 0) return 'failed';
+    if (batch.completed_count === batch.job_count) return 'completed';
+    if (batch.completed_count > 0) return 'processing';
+    return 'queued';
+  };
 
-  if (!jobsData || jobsData.length === 0) {
+  // Open batch details modal
+  const handleViewBatchDetails = async (batchId) => {
+    setSelectedBatchId(batchId);
+    await loadBatchJobs(batchId);
+  };
+
+  const selectedBatch = selectedBatchId ? batchesData.find(b => b.batch_id === selectedBatchId) : null;
+
+  if (!batchesData || batchesData.length === 0) {
     return (
       <div className="job-list-container">
-        <h2>Job History</h2>
-        <p className="empty-message">No jobs yet. Submit some images to get started!</p>
+        <h2>Batch History</h2>
+        <p className="empty-message">No batches yet. Submit some images to get started!</p>
       </div>
     );
   }
@@ -100,7 +132,7 @@ const JobList = ({ jobs, onRefresh }) => {
   return (
     <div className="job-list-container">
       <div className="job-list-header">
-        <h2>Job History</h2>
+        <h2>Batch History</h2>
         <button className="refresh-btn" onClick={onRefresh}>
           ↻ Refresh
         </button>
@@ -110,129 +142,174 @@ const JobList = ({ jobs, onRefresh }) => {
         <table className="jobs-table">
           <thead>
             <tr>
-              <th>File Name</th>
-              <th>Pipeline</th>
+              <th>Batch Name</th>
+              <th>Files</th>
               <th>Status</th>
+              <th>Progress</th>
               <th>Created</th>
-              <th>Duration</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {jobsData.map(job => (
-              <tr key={job.id} className={`job-row ${getStatusClass(job.status)}`}>
-                <td className="file-name-cell">
-                  <span title={job.file_name}>{job.file_name}</span>
-                </td>
-                <td className="pipeline-cell">{job.pipeline_id}</td>
-                <td className="status-cell">
-                  <span className={`status-badge ${getStatusClass(job.status)}`}>
-                    {job.status}
-                  </span>
-                </td>
-                <td className="created-cell">
-                  {formatDate(job.created_at)}
-                </td>
-                <td className="duration-cell">
-                  {formatDuration(job.created_at, job.updated_at)}
-                </td>
-                <td className="actions-cell">
-                  {job.status === 'completed' && (
-                    <button
-                      className="download-btn"
-                      onClick={() => handleDownload(job.id)}
-                      disabled={downloadingJobs.has(job.id)}
-                      title="Download processed image(s)"
-                    >
-                      {downloadingJobs.has(job.id) ? (
-                        <>
-                          <span className="spinner-small" />
-                          Downloading...
-                        </>
-                      ) : (
-                        <>
-                          ↓ Download
-                        </>
+            {batchesData.map(batch => {
+              const batchStatus = getBatchStatus(batch);
+              return (
+                <tr key={batch.batch_id} className={`job-row ${getStatusClass(batchStatus)}`}>
+                  <td className="file-name-cell">
+                    <div>
+                      <strong>{batch.base_directory_name}</strong>
+                      {batch.render_description && (
+                        <div style={{ fontSize: '0.85em', color: '#666' }}>
+                          {batch.render_description}
+                        </div>
                       )}
-                    </button>
-                  )}
-                  {job.status === 'failed' && (
-                    <span className="error-info" title={job.error_message}>
-                      Error: {job.error_message?.substring(0, 30)}...
+                    </div>
+                  </td>
+                  <td className="pipeline-cell">{batch.job_count} files</td>
+                  <td className="status-cell">
+                    <span className={`status-badge ${getStatusClass(batchStatus)}`}>
+                      {batchStatus}
                     </span>
-                  )}
-                  {/* ISSUE #3 FIX: Details button now shows modal */}
-                  <button
-                    className="details-btn"
-                    onClick={() => setSelectedJobId(job.id)}
-                    title="View job details"
-                  >
-                    →
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="duration-cell">
+                    {batch.completed_count}/{batch.job_count} complete
+                    {batch.failed_count > 0 && (
+                      <span style={{ color: '#dc3545', marginLeft: '8px' }}>
+                        ({batch.failed_count} failed)
+                      </span>
+                    )}
+                  </td>
+                  <td className="created-cell">
+                    {formatDate(batch.batch_created_at)}
+                  </td>
+                  <td className="actions-cell">
+                    {batchStatus === 'completed' && (
+                      <button
+                        className="download-btn"
+                        onClick={() => handleDownloadBatch(batch)}
+                        disabled={downloadingBatches.has(batch.batch_id)}
+                        title="Download batch outputs"
+                      >
+                        {downloadingBatches.has(batch.batch_id) ? (
+                          <>
+                            <span className="spinner-small" />
+                            Downloading...
+                          </>
+                        ) : (
+                          <>
+                            ↓ Download
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      className="details-btn"
+                      onClick={() => handleViewBatchDetails(batch.batch_id)}
+                      title="View batch details"
+                    >
+                      →
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* ISSUE #3 FIX: Job Details Modal */}
-      {selectedJob && (
-        <div className="modal-overlay" onClick={() => setSelectedJobId(null)}>
+      {/* Batch Details Modal */}
+      {selectedBatch && (
+        <div className="modal-overlay" onClick={() => setSelectedBatchId(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Job Details</h3>
-              <button className="modal-close" onClick={() => setSelectedJobId(null)}>✕</button>
+              <h3>Batch Details</h3>
+              <button className="modal-close" onClick={() => setSelectedBatchId(null)}>✕</button>
             </div>
 
             <div className="modal-body">
               <div className="detail-group">
-                <label>Job ID</label>
-                <value className="monospace">{selectedJob.id}</value>
+                <label>Batch ID</label>
+                <value className="monospace">{selectedBatch.batch_id}</value>
               </div>
 
               <div className="detail-group">
-                <label>File Name</label>
-                <value>{selectedJob.file_name}</value>
+                <label>Directory Name</label>
+                <value>{selectedBatch.base_directory_name}</value>
+              </div>
+
+              {selectedBatch.render_description && (
+                <div className="detail-group">
+                  <label>Description</label>
+                  <value>{selectedBatch.render_description}</value>
+                </div>
+              )}
+
+              <div className="detail-group">
+                <label>Total Files</label>
+                <value>{selectedBatch.job_count}</value>
               </div>
 
               <div className="detail-group">
-                <label>Pipeline ID</label>
-                <value>{selectedJob.pipeline_id}</value>
+                <label>Completed</label>
+                <value style={{ color: '#28a745' }}>{selectedBatch.completed_count}</value>
+              </div>
+
+              {selectedBatch.failed_count > 0 && (
+                <div className="detail-group">
+                  <label>Failed</label>
+                  <value style={{ color: '#dc3545' }}>{selectedBatch.failed_count}</value>
+                </div>
+              )}
+
+              <div className="detail-group">
+                <label>Created</label>
+                <value>{formatDate(selectedBatch.batch_created_at)}</value>
               </div>
 
               <div className="detail-group">
                 <label>Status</label>
-                <value className={`status-badge ${getStatusClass(selectedJob.status)}`}>
-                  {selectedJob.status.toUpperCase()}
+                <value className={`status-badge ${getStatusClass(getBatchStatus(selectedBatch))}`}>
+                  {getBatchStatus(selectedBatch).toUpperCase()}
                 </value>
               </div>
 
-              <div className="detail-group">
-                <label>Created</label>
-                <value>{formatDate(selectedJob.created_at)}</value>
-              </div>
+              <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid #dee2e6' }} />
 
-              <div className="detail-group">
-                <label>Updated</label>
-                <value>{formatDate(selectedJob.updated_at)}</value>
-              </div>
-
-              <div className="detail-group">
-                <label>Duration</label>
-                <value>{formatDuration(selectedJob.created_at, selectedJob.updated_at)}</value>
-              </div>
-
-              {selectedJob.error_message && (
-                <div className="detail-group error">
-                  <label>Error</label>
-                  <value>{selectedJob.error_message}</value>
+              <h4 style={{ marginBottom: '15px' }}>Jobs in this Batch</h4>
+              
+              {loadingBatchJobs ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <span className="spinner-small" style={{ marginRight: '10px' }} />
+                  Loading jobs...
                 </div>
+              ) : batchJobs.length === 0 ? (
+                <p style={{ color: '#666', fontStyle: 'italic' }}>No jobs found in this batch</p>
+              ) : (
+                <table style={{ width: '100%', fontSize: '0.9em', marginTop: '10px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #dee2e6' }}>
+                      <th style={{ textAlign: 'left', padding: '8px' }}>File</th>
+                      <th style={{ textAlign: 'left', padding: '8px' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchJobs.map(job => (
+                      <tr key={job.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                        <td style={{ padding: '8px' }}>{job.input_filename}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span className={`status-badge ${getStatusClass(job.status)}`}>
+                            {job.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setSelectedJobId(null)}>
+              <button className="btn btn-secondary" onClick={() => setSelectedBatchId(null)}>
                 Close
               </button>
             </div>
