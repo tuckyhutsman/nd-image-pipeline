@@ -200,9 +200,7 @@ const JobList = ({ jobs, onRefresh }) => {
       
       setEditingBatchName(false);
       setTempBatchName('');
-      
-      // Refresh from server to ensure data consistency
-      await onRefresh();
+      // Note: Auto-refresh will pick up the change from server within 3 seconds
     } catch (err) {
       console.error('Error saving batch name:', err);
       alert(`Failed to save batch name: ${err.message}`);
@@ -226,9 +224,7 @@ const JobList = ({ jobs, onRefresh }) => {
       
       setEditingBatchName(false);
       setTempBatchName('');
-      
-      // Refresh from server to ensure data consistency
-      await onRefresh();
+      // Note: Auto-refresh will pick up the change from server within 3 seconds
     } catch (err) {
       console.error('Error resetting batch name:', err);
       alert(`Failed to reset batch name: ${err.message}`);

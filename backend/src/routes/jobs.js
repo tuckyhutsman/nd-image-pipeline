@@ -20,10 +20,13 @@ router.get('/', async (req, res) => {
       SELECT 
         b.id as batch_id,
         b.base_directory_name,
+        b.custom_name,
+        b.name_customized,
         b.render_description,
         b.customer_prefix,
         b.status as batch_status,
         b.total_files,
+        b.total_output_size,
         b.created_at as batch_created_at,
         COUNT(j.id) as job_count,
         COUNT(CASE WHEN j.status = 'completed' THEN 1 END) as completed_count,
