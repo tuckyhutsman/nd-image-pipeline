@@ -58,6 +58,36 @@ router.get('/batch/:batch_id', async (req, res) => {
   }
 });
 
+// DELETE /api/jobs/:id - Delete individual job
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get job info before deleting
+    const jobResult = await global.db.query('SELECT * FROM jobs WHERE id = $1', [id]);
+    
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const job = jobResult.rows[0];
+
+    // Delete job from database (this will update batch counts via trigger)
+    await global.db.query('DELETE FROM jobs WHERE id = $1', [id]);
+
+    // Delete output files
+    const outputDir = path.join(OUTPUT_PATH, id);
+    if (fs.existsSync(outputDir)) {
+      fs.rmSync(outputDir, { recursive: true, force: true });
+    }
+
+    res.json({ message: 'Job deleted successfully', job_id: id });
+  } catch (err) {
+    console.error('Error deleting job:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/jobs/:id - Get specific job details
 router.get('/:id', async (req, res) => {
   try {

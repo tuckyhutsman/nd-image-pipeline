@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient, { buildFullUrl } from '../config/api';
+import ConfirmDialog from './ConfirmDialog';
+import DropdownMenu from './DropdownMenu';
 import './JobList.css';
 
 const JobList = ({ jobs, onRefresh }) => {
@@ -8,6 +10,14 @@ const JobList = ({ jobs, onRefresh }) => {
   const [selectedBatchId, setSelectedBatchId] = useState(null);
   const [batchJobs, setBatchJobs] = useState([]);
   const [loadingBatchJobs, setLoadingBatchJobs] = useState(false);
+  
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     setBatchesData(jobs);
@@ -25,6 +35,47 @@ const JobList = ({ jobs, onRefresh }) => {
     } finally {
       setLoadingBatchJobs(false);
     }
+  };
+
+  // Delete entire batch
+  const handleDeleteBatch = async (batch) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Batch?',
+      message: `Are you sure you want to delete "${batch.base_directory_name}"? This will permanently delete all ${batch.job_count} jobs and their output files. This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await apiClient.delete(`/batches/${batch.batch_id}`);
+          alert('Batch deleted successfully');
+          onRefresh(); // Refresh the list
+        } catch (err) {
+          console.error('Error deleting batch:', err);
+          alert(`Failed to delete batch: ${err.message}`);
+        }
+      },
+    });
+  };
+
+  // Delete individual job
+  const handleDeleteJob = async (job) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Job?',
+      message: `Are you sure you want to delete "${job.input_filename}"? This will permanently delete the job and its output files. This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await apiClient.delete(`/jobs/${job.id}`);
+          alert('Job deleted successfully');
+          // Reload batch jobs
+          await loadBatchJobs(selectedBatchId);
+          // Refresh the main list
+          onRefresh();
+        } catch (err) {
+          console.error('Error deleting job:', err);
+          alert(`Failed to delete job: ${err.message}`);
+        }
+      },
+    });
   };
 
   // Download batch outputs as ZIP
@@ -199,6 +250,21 @@ const JobList = ({ jobs, onRefresh }) => {
                     >
                       →
                     </button>
+                    <DropdownMenu
+                      items={[
+                        {
+                          label: 'Delete Batch',
+                          icon: '🗑',
+                          action: 'delete',
+                          danger: true,
+                        },
+                      ]}
+                      onSelect={(action) => {
+                        if (action === 'delete') {
+                          handleDeleteBatch(batch);
+                        }
+                      }}
+                    />
                   </td>
                 </tr>
               );
@@ -280,6 +346,7 @@ const JobList = ({ jobs, onRefresh }) => {
                     <tr style={{ borderBottom: '2px solid #dee2e6' }}>
                       <th style={{ textAlign: 'left', padding: '8px' }}>File</th>
                       <th style={{ textAlign: 'left', padding: '8px' }}>Status</th>
+                      <th style={{ textAlign: 'right', padding: '8px', width: '60px' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -290,6 +357,23 @@ const JobList = ({ jobs, onRefresh }) => {
                           <span className={`status-badge ${getStatusClass(job.status)}`}>
                             {job.status}
                           </span>
+                        </td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>
+                          <DropdownMenu
+                            items={[
+                              {
+                                label: 'Delete Job',
+                                icon: '🗑',
+                                action: 'delete',
+                                danger: true,
+                              },
+                            ]}
+                            onSelect={(action) => {
+                              if (action === 'delete') {
+                                handleDeleteJob(job);
+                              }
+                            }}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -322,6 +406,15 @@ const JobList = ({ jobs, onRefresh }) => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+      />
     </div>
   );
 };
