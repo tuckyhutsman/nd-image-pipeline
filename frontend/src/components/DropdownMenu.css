@@ -1,10 +1,5 @@
 /* frontend/src/components/DropdownMenu.css */
 
-.dropdown-menu-container {
-  position: relative;
-  display: inline-block;
-}
-
 .dropdown-trigger {
   background: none;
   border: none;
@@ -22,17 +17,13 @@
   color: #495057;
 }
 
-.dropdown-menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
+/* Portal-rendered dropdown menu */
+.dropdown-menu-portal {
   background: white;
   border: 1px solid #dee2e6;
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 160px;
-  z-index: 1000;
   overflow: hidden;
 }
 
