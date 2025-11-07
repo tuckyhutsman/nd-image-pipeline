@@ -76,12 +76,16 @@ const DropdownMenu = ({ items, onSelect }) => {
       {items.map((item, index) => (
         <button
           key={index}
-          className={`dropdown-item ${item.danger ? 'danger' : ''}`}
+          className={`dropdown-item ${item.className || ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            handleItemClick(item.action);
+            setIsOpen(false);
+            if (item.onClick && !item.disabled) {
+              item.onClick();
+            }
           }}
           disabled={item.disabled}
+          title={item.tooltip}
         >
           {item.icon && <span className="dropdown-item-icon">{item.icon}</span>}
           <span>{item.label}</span>

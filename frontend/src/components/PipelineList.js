@@ -189,7 +189,7 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
                   Created: {new Date(pipeline.created_at).toLocaleDateString()}
                   {pipeline.archived_at && ` | Archived: ${new Date(pipeline.archived_at).toLocaleDateString()}`}
                 </p>
-                <pre className="pipeline-config">{JSON.stringify(pipeline.config, null, 2)}</pre>
+                {/* Hide JSON config - cleaner UI */}
               </div>
             ))
           )}
