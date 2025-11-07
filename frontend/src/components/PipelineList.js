@@ -91,7 +91,7 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
     const items = [];
 
     if (activeTab === 'active') {
-      // Active pipeline menu
+      // Active pipeline menu - Edit and Archive only
       items.push({
         label: 'Edit',
         onClick: () => onEdit(pipeline.id),
@@ -104,13 +104,7 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
         tooltip: pipeline.is_template ? 'Templates cannot be archived' : undefined,
       });
 
-      items.push({
-        label: 'Delete',
-        onClick: () => handleDelete(pipeline),
-        disabled: pipeline.is_template,
-        tooltip: pipeline.is_template ? 'Templates cannot be deleted' : undefined,
-        className: 'menu-item-danger',
-      });
+      // Delete removed from active tab - only available in archived tab
     } else {
       // Archived pipeline menu
       items.push({
