@@ -34,20 +34,24 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
   };
 
   const handleArchive = async (pipeline) => {
+    console.log('Archive clicked for:', pipeline.name);
     setConfirmDialog({
       title: 'Archive Pipeline?',
       message: `Are you sure you want to archive "${pipeline.name}"? It will be hidden from the active list but can be restored later.`,
+      confirmStyle: 'danger',
       onConfirm: async () => {
+        console.log('Archive confirmed for:', pipeline.id);
         try {
           await apiClient.patch(`/pipelines/${pipeline.id}/archive`);
+          console.log('Archive successful');
           onRefresh();
           setConfirmDialog(null);
         } catch (err) {
-          alert('Error archiving pipeline: ' + err.response?.data?.message || err.message);
+          console.error('Archive error:', err);
+          alert('Error archiving pipeline: ' + (err.response?.data?.message || err.message));
           setConfirmDialog(null);
         }
       },
-      onCancel: () => setConfirmDialog(null),
     });
   };
 
@@ -61,22 +65,25 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
   };
 
   const handleDelete = async (pipeline) => {
+    console.log('Delete clicked for:', pipeline.name);
     setConfirmDialog({
       title: 'Delete Pipeline?',
       message: `Are you sure you want to permanently delete "${pipeline.name}"? This action cannot be undone.`,
       confirmText: 'Delete',
       confirmStyle: 'danger',
       onConfirm: async () => {
+        console.log('Delete confirmed for:', pipeline.id);
         try {
           await apiClient.delete(`/pipelines/${pipeline.id}`);
+          console.log('Delete successful');
           onRefresh();
           setConfirmDialog(null);
         } catch (err) {
-          alert('Error deleting pipeline: ' + err.response?.data?.message || err.message);
+          console.error('Delete error:', err);
+          alert('Error deleting pipeline: ' + (err.response?.data?.message || err.message));
           setConfirmDialog(null);
         }
       },
-      onCancel: () => setConfirmDialog(null),
     });
   };
 
@@ -200,12 +207,14 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <ConfirmDialog
+          isOpen={true}
+          onClose={() => setConfirmDialog(null)}
           title={confirmDialog.title}
           message={confirmDialog.message}
-          confirmText={confirmDialog.confirmText}
-          confirmStyle={confirmDialog.confirmStyle}
+          confirmText={confirmDialog.confirmText || 'Confirm'}
+          cancelText="Cancel"
+          danger={confirmDialog.confirmStyle === 'danger'}
           onConfirm={confirmDialog.onConfirm}
-          onCancel={confirmDialog.onCancel}
         />
       )}
     </div>
