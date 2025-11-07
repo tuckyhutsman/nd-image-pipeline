@@ -27,23 +27,13 @@ const JobList = ({ jobs, onRefresh }) => {
     }
   };
 
-  // Download batch outputs (for now, download first completed job)
+  // Download batch outputs as ZIP
   const handleDownloadBatch = async (batch) => {
     try {
       setDownloadingBatches(prev => new Set(prev).add(batch.batch_id));
 
-      // Load jobs in the batch to find a completed one
-      const response = await apiClient.get(`/jobs/batch/${batch.batch_id}`);
-      const jobs = response.data;
-      const completedJob = jobs.find(j => j.status === 'completed');
-
-      if (!completedJob) {
-        alert('No completed jobs in this batch yet');
-        return;
-      }
-
-      // Note: Download endpoint needs full URL for browser download
-      const url = buildFullUrl(`/api/jobs/${completedJob.id}/download`);
+      // Use the batch download endpoint
+      const url = buildFullUrl(`/api/batches/${batch.batch_id}/download`);
       
       const downloadResponse = await fetch(url);
 
@@ -53,7 +43,7 @@ const JobList = ({ jobs, onRefresh }) => {
 
       // Get filename from response headers
       const contentDisposition = downloadResponse.headers.get('content-disposition');
-      let filename = `batch-${batch.batch_id.substring(0, 8)}.zip`;
+      let filename = `${batch.base_directory_name}.zip`;
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="?(.+?)"?$/);
         if (filenameMatch) {
