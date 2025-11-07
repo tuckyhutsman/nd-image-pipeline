@@ -66,7 +66,7 @@ class ImagePipelineWorker {
     try {
       // Update job status to processing
       await db.query(
-        'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE jobs SET status = $1, started_at = NOW() WHERE id = $2',
         ['processing', job_id]
       );
 
@@ -113,7 +113,7 @@ class ImagePipelineWorker {
 
       // Update job status to completed
       await db.query(
-        'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE jobs SET status = $1, completed_at = NOW() WHERE id = $2',
         ['completed', job_id]
       );
 
@@ -132,8 +132,8 @@ class ImagePipelineWorker {
 
       try {
         await db.query(
-          'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2',
-          ['failed', job_id]
+          'UPDATE jobs SET status = $1, error_message = $2, failed_at = NOW() WHERE id = $3',
+          ['failed', error.message, job_id]
         );
       } catch (dbErr) {
         console.error('Failed to update job status:', dbErr.message);
