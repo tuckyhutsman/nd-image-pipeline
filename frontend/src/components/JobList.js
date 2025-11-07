@@ -191,7 +191,7 @@ const JobList = ({ jobs, onRefresh }) => {
         custom_name: tempBatchName.trim(),
       });
       
-      // Update local state
+      // Update local state immediately for responsive UI
       setBatchesData(prev => prev.map(b => 
         b.batch_id === selectedBatch.batch_id 
           ? { ...b, custom_name: tempBatchName.trim(), name_customized: true }
@@ -200,6 +200,9 @@ const JobList = ({ jobs, onRefresh }) => {
       
       setEditingBatchName(false);
       setTempBatchName('');
+      
+      // Refresh from server to ensure data consistency
+      await onRefresh();
     } catch (err) {
       console.error('Error saving batch name:', err);
       alert(`Failed to save batch name: ${err.message}`);
@@ -214,7 +217,7 @@ const JobList = ({ jobs, onRefresh }) => {
     try {
       await apiClient.patch(`/batches/${selectedBatch.batch_id}/reset-name`);
       
-      // Update local state
+      // Update local state immediately
       setBatchesData(prev => prev.map(b => 
         b.batch_id === selectedBatch.batch_id 
           ? { ...b, custom_name: null, name_customized: false }
@@ -223,6 +226,9 @@ const JobList = ({ jobs, onRefresh }) => {
       
       setEditingBatchName(false);
       setTempBatchName('');
+      
+      // Refresh from server to ensure data consistency
+      await onRefresh();
     } catch (err) {
       console.error('Error resetting batch name:', err);
       alert(`Failed to reset batch name: ${err.message}`);
