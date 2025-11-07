@@ -52,7 +52,8 @@ function App() {
   };
 
   const handleEditPipeline = (pipelineId) => {
-    setEditingPipelineId(pipelineId);
+    // If pipelineId is null, we're creating a new pipeline
+    setEditingPipelineId(pipelineId === null ? 'new' : pipelineId);
   };
 
   const handleBackToList = () => {

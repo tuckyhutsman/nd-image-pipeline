@@ -242,8 +242,12 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
   useEffect(() => {
     fetchPipelines();
     // If editPipelineId provided, load that pipeline for editing
-    if (editPipelineId) {
+    if (editPipelineId && editPipelineId !== 'new') {
       loadPipelineForEditing(editPipelineId);
+    } else if (editPipelineId === 'new') {
+      // Creating new pipeline - go directly to editor
+      setMode('create-single');
+      setEditingId(null);
     }
   }, [editPipelineId]);
 

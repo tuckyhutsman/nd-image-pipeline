@@ -46,17 +46,22 @@
   background-color: #f8f9fa;
 }
 
-.dropdown-item.danger {
+.dropdown-item.menu-item-danger {
   color: #dc3545;
 }
 
-.dropdown-item.danger:hover {
+.dropdown-item.menu-item-danger:hover {
   background-color: #f8d7da;
 }
 
 .dropdown-item:disabled {
   color: #adb5bd;
   cursor: not-allowed;
+  background-color: transparent;
+  opacity: 0.6;
+}
+
+.dropdown-item:disabled:hover {
   background-color: transparent;
 }
 

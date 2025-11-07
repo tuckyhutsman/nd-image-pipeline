@@ -125,7 +125,8 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
 
   return (
     <div>
-      {showForm && (
+      {/* Hide old form - use "New Pipeline" button instead */}
+      {false && showForm && (
         <div className="card">
           <h2>Create New Pipeline</h2>
           <form onSubmit={handleCreate}>
@@ -146,7 +147,7 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2>Pipelines</h2>
-          <button className="button" onClick={() => setShowForm(!showForm)}>{showForm ? 'Hide Form' : 'New Pipeline'}</button>
+          <button className="button" onClick={() => onEdit(null)}>New Pipeline</button>
         </div>
 
         {/* Tab Navigation */}

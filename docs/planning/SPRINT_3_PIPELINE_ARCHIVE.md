@@ -100,13 +100,16 @@ CREATE INDEX idx_pipelines_is_template ON pipelines(is_template);
 - [x] Add confirmation dialogs (reused from Sprint 2)
 - [x] Test UI interactions
 
-### Phase 3: Polish & Testing ✅
+### Phase 3: Polish & Testing ✅ COMPLETE
 - [x] Add visual indicators
 - [x] Add tooltips
 - [x] Test archive/unarchive flow
 - [x] Test template protection
 - [x] Integrate with PipelineEditor
-- [ ] Deploy to production
+- [x] Hide old JSON form
+- [x] "New Pipeline" opens editor
+- [x] Fix dropdown menu actions
+- [x] Deploy to production
 
 ---
 
