@@ -117,6 +117,18 @@ class ImagePipelineWorker {
         ['completed', job_id]
       );
 
+      // Update batch total_output_size
+      try {
+        await db.query(
+          `UPDATE batches 
+           SET total_output_size = total_output_size + $1 
+           WHERE id = (SELECT batch_id FROM jobs WHERE id = $2)`,
+          [processResult.filesize, job_id]
+        );
+      } catch (sizeErr) {
+        console.warn('Failed to update batch output size:', sizeErr.message);
+      }
+
       console.log(`✓ Job ${job_id} completed successfully`);
 
       return {

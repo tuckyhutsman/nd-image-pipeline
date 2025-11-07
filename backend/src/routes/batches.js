@@ -148,6 +148,84 @@ router.get('/:batch_id/download', async (req, res) => {
   }
 });
 
+// PATCH /api/batches/:batch_id/name - Update custom batch name
+router.patch('/:batch_id/name', async (req, res) => {
+  try {
+    const { batch_id } = req.params;
+    const { custom_name } = req.body;
+
+    // Validate input
+    if (!custom_name || typeof custom_name !== 'string') {
+      return res.status(400).json({ error: 'custom_name is required and must be a string' });
+    }
+
+    if (custom_name.length > 255) {
+      return res.status(400).json({ error: 'custom_name must be 255 characters or less' });
+    }
+
+    // Check if batch exists
+    const checkResult = await global.db.query(
+      'SELECT id FROM batches WHERE id = $1',
+      [batch_id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    // Update batch name
+    const result = await global.db.query(
+      `UPDATE batches 
+       SET custom_name = $1, name_customized = TRUE 
+       WHERE id = $2 
+       RETURNING *`,
+      [custom_name.trim(), batch_id]
+    );
+
+    res.json({
+      message: 'Batch name updated successfully',
+      batch: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Error updating batch name:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/batches/:batch_id/reset-name - Reset to auto-generated name
+router.patch('/:batch_id/reset-name', async (req, res) => {
+  try {
+    const { batch_id } = req.params;
+
+    // Check if batch exists
+    const checkResult = await global.db.query(
+      'SELECT id FROM batches WHERE id = $1',
+      [batch_id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    // Reset custom name
+    const result = await global.db.query(
+      `UPDATE batches 
+       SET custom_name = NULL, name_customized = FALSE 
+       WHERE id = $1 
+       RETURNING *`,
+      [batch_id]
+    );
+
+    res.json({
+      message: 'Batch name reset successfully',
+      batch: result.rows[0],
+    });
+  } catch (err) {
+    console.error('Error resetting batch name:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /api/batches/:batch_id - Delete batch and all its jobs
 router.delete('/:batch_id', async (req, res) => {
   try {

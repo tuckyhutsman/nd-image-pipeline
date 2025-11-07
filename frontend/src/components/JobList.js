@@ -18,6 +18,11 @@ const JobList = ({ jobs, onRefresh }) => {
     message: '',
     onConfirm: () => {},
   });
+  
+  // Batch name editing state
+  const [editingBatchName, setEditingBatchName] = useState(false);
+  const [tempBatchName, setTempBatchName] = useState('');
+  const [savingBatchName, setSavingBatchName] = useState(false);
 
   useEffect(() => {
     setBatchesData(jobs);
@@ -156,7 +161,85 @@ const JobList = ({ jobs, onRefresh }) => {
   // Open batch details modal
   const handleViewBatchDetails = async (batchId) => {
     setSelectedBatchId(batchId);
+    setEditingBatchName(false); // Reset edit mode when opening modal
     await loadBatchJobs(batchId);
+  };
+
+  // Start editing batch name
+  const handleStartEditBatchName = () => {
+    const displayName = selectedBatch.custom_name || selectedBatch.base_directory_name;
+    setTempBatchName(displayName);
+    setEditingBatchName(true);
+  };
+
+  // Cancel editing batch name
+  const handleCancelEditBatchName = () => {
+    setEditingBatchName(false);
+    setTempBatchName('');
+  };
+
+  // Save custom batch name
+  const handleSaveBatchName = async () => {
+    if (!tempBatchName.trim()) {
+      alert('Batch name cannot be empty');
+      return;
+    }
+
+    setSavingBatchName(true);
+    try {
+      await apiClient.patch(`/batches/${selectedBatch.batch_id}/name`, {
+        custom_name: tempBatchName.trim(),
+      });
+      
+      // Update local state
+      setBatchesData(prev => prev.map(b => 
+        b.batch_id === selectedBatch.batch_id 
+          ? { ...b, custom_name: tempBatchName.trim(), name_customized: true }
+          : b
+      ));
+      
+      setEditingBatchName(false);
+      setTempBatchName('');
+    } catch (err) {
+      console.error('Error saving batch name:', err);
+      alert(`Failed to save batch name: ${err.message}`);
+    } finally {
+      setSavingBatchName(false);
+    }
+  };
+
+  // Reset batch name to auto-generated
+  const handleResetBatchName = async () => {
+    setSavingBatchName(true);
+    try {
+      await apiClient.patch(`/batches/${selectedBatch.batch_id}/reset-name`);
+      
+      // Update local state
+      setBatchesData(prev => prev.map(b => 
+        b.batch_id === selectedBatch.batch_id 
+          ? { ...b, custom_name: null, name_customized: false }
+          : b
+      ));
+      
+      setEditingBatchName(false);
+      setTempBatchName('');
+    } catch (err) {
+      console.error('Error resetting batch name:', err);
+      alert(`Failed to reset batch name: ${err.message}`);
+    } finally {
+      setSavingBatchName(false);
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return null;
+    const kb = bytes / 1024;
+    if (kb < 1500) {
+      return `${Math.round(kb)} KB`;
+    }
+    const mb = kb / 1024;
+    return `${mb.toFixed(1)} MB`;
   };
 
   const selectedBatch = selectedBatchId ? batchesData.find(b => b.batch_id === selectedBatchId) : null;
@@ -198,7 +281,12 @@ const JobList = ({ jobs, onRefresh }) => {
                 <tr key={batch.batch_id} className={`job-row ${getStatusClass(batchStatus)}`}>
                   <td className="file-name-cell">
                     <div>
-                      <strong>{batch.base_directory_name}</strong>
+                      <strong>{batch.custom_name || batch.base_directory_name}</strong>
+                      {batch.custom_name && (
+                        <div style={{ fontSize: '0.75em', color: '#999', fontStyle: 'italic' }}>
+                          {batch.base_directory_name}
+                        </div>
+                      )}
                       {batch.render_description && (
                         <div style={{ fontSize: '0.85em', color: '#666' }}>
                           {batch.render_description}
@@ -238,7 +326,12 @@ const JobList = ({ jobs, onRefresh }) => {
                           </>
                         ) : (
                           <>
-                            ↓ Download
+                            <span>↓ Download</span>
+                            {batch.total_output_size > 0 && (
+                              <span className="download-size">
+                                {formatFileSize(batch.total_output_size)}
+                              </span>
+                            )}
                           </>
                         )}
                       </button>
@@ -289,9 +382,105 @@ const JobList = ({ jobs, onRefresh }) => {
               </div>
 
               <div className="detail-group">
-                <label>Directory Name</label>
-                <value>{selectedBatch.base_directory_name}</value>
+                <label>Batch Name</label>
+                {editingBatchName ? (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={tempBatchName}
+                      onChange={(e) => setTempBatchName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSaveBatchName()}
+                      maxLength={255}
+                      style={{
+                        flex: 1,
+                        padding: '6px 12px',
+                        border: '1px solid #ced4da',
+                        borderRadius: '4px',
+                        fontSize: '0.95rem',
+                      }}
+                      autoFocus
+                      disabled={savingBatchName}
+                    />
+                    <button
+                      onClick={handleSaveBatchName}
+                      disabled={savingBatchName}
+                      style={{
+                        padding: '6px 16px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: savingBatchName ? 'wait' : 'pointer',
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      {savingBatchName ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={handleCancelEditBatchName}
+                      disabled={savingBatchName}
+                      style={{
+                        padding: '6px 16px',
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: savingBatchName ? 'wait' : 'pointer',
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <value style={{ flex: 1 }}>
+                      {selectedBatch.custom_name || selectedBatch.base_directory_name}
+                    </value>
+                    <button
+                      onClick={handleStartEditBatchName}
+                      style={{
+                        padding: '4px 12px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+                    {selectedBatch.name_customized && (
+                      <button
+                        onClick={handleResetBatchName}
+                        disabled={savingBatchName}
+                        style={{
+                          padding: '4px 12px',
+                          backgroundColor: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: savingBatchName ? 'wait' : 'pointer',
+                          fontSize: '0.85rem',
+                        }}
+                        title="Reset to auto-generated name"
+                      >
+                        🔄 Reset
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {selectedBatch.custom_name && (
+                <div className="detail-group">
+                  <label>Original Name</label>
+                  <value style={{ color: '#999', fontStyle: 'italic' }}>
+                    {selectedBatch.base_directory_name}
+                  </value>
+                </div>
+              )}
 
               {selectedBatch.render_description && (
                 <div className="detail-group">
@@ -385,7 +574,7 @@ const JobList = ({ jobs, onRefresh }) => {
             <div className="modal-footer">
               {getBatchStatus(selectedBatch) === 'completed' && (
                 <button 
-                  className="btn btn-primary"
+                  className="btn btn-primary download-btn-modal"
                   onClick={() => handleDownloadBatch(selectedBatch)}
                   disabled={downloadingBatches.has(selectedBatch.batch_id)}
                 >
@@ -395,7 +584,14 @@ const JobList = ({ jobs, onRefresh }) => {
                       Downloading...
                     </>
                   ) : (
-                    <>↓ Download All Files</>
+                    <>
+                      <span>↓ Download All Files</span>
+                      {selectedBatch.total_output_size > 0 && (
+                        <span className="download-size" style={{ marginLeft: '8px' }}>
+                          ({formatFileSize(selectedBatch.total_output_size)})
+                        </span>
+                      )}
+                    </>
                   )}
                 </button>
               )}
