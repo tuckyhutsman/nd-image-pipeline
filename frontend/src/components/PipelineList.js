@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 import apiClient from '../config/api';
+import DropdownMenu from './DropdownMenu';
+import ConfirmDialog from './ConfirmDialog';
+import './PipelineList.css';
 
 function PipelineList({ pipelines, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [config, setConfig] = useState('{}');
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'archived'
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  // Filter pipelines based on active tab
+  const activePipelines = pipelines.filter(p => !p.archived);
+  const archivedPipelines = pipelines.filter(p => p.archived);
+  const displayedPipelines = activeTab === 'active' ? activePipelines : archivedPipelines;
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -21,6 +31,96 @@ function PipelineList({ pipelines, onRefresh }) {
     } catch (err) {
       alert('Error creating pipeline: ' + err.message);
     }
+  };
+
+  const handleArchive = async (pipeline) => {
+    setConfirmDialog({
+      title: 'Archive Pipeline?',
+      message: `Are you sure you want to archive "${pipeline.name}"? It will be hidden from the active list but can be restored later.`,
+      onConfirm: async () => {
+        try {
+          await apiClient.patch(`/pipelines/${pipeline.id}/archive`);
+          onRefresh();
+          setConfirmDialog(null);
+        } catch (err) {
+          alert('Error archiving pipeline: ' + err.response?.data?.message || err.message);
+          setConfirmDialog(null);
+        }
+      },
+      onCancel: () => setConfirmDialog(null),
+    });
+  };
+
+  const handleUnarchive = async (pipeline) => {
+    try {
+      await apiClient.patch(`/pipelines/${pipeline.id}/unarchive`);
+      onRefresh();
+    } catch (err) {
+      alert('Error unarchiving pipeline: ' + err.message);
+    }
+  };
+
+  const handleDelete = async (pipeline) => {
+    setConfirmDialog({
+      title: 'Delete Pipeline?',
+      message: `Are you sure you want to permanently delete "${pipeline.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmStyle: 'danger',
+      onConfirm: async () => {
+        try {
+          await apiClient.delete(`/pipelines/${pipeline.id}`);
+          onRefresh();
+          setConfirmDialog(null);
+        } catch (err) {
+          alert('Error deleting pipeline: ' + err.response?.data?.message || err.message);
+          setConfirmDialog(null);
+        }
+      },
+      onCancel: () => setConfirmDialog(null),
+    });
+  };
+
+  const getPipelineMenuItems = (pipeline) => {
+    const items = [];
+
+    if (activeTab === 'active') {
+      // Active pipeline menu
+      items.push({
+        label: 'Edit',
+        onClick: () => alert('Edit functionality coming soon!'),
+      });
+
+      items.push({
+        label: 'Archive',
+        onClick: () => handleArchive(pipeline),
+        disabled: pipeline.is_template,
+        tooltip: pipeline.is_template ? 'Templates cannot be archived' : undefined,
+      });
+
+      items.push({
+        label: 'Delete',
+        onClick: () => handleDelete(pipeline),
+        disabled: pipeline.is_template,
+        tooltip: pipeline.is_template ? 'Templates cannot be deleted' : undefined,
+        className: 'menu-item-danger',
+      });
+    } else {
+      // Archived pipeline menu
+      items.push({
+        label: 'Unarchive',
+        onClick: () => handleUnarchive(pipeline),
+      });
+
+      items.push({
+        label: 'Delete',
+        onClick: () => handleDelete(pipeline),
+        disabled: pipeline.is_template,
+        tooltip: pipeline.is_template ? 'Templates cannot be deleted' : undefined,
+        className: 'menu-item-danger',
+      });
+    }
+
+    return items;
   };
 
   return (
@@ -49,14 +149,64 @@ function PipelineList({ pipelines, onRefresh }) {
           <button className="button" onClick={() => setShowForm(!showForm)}>{showForm ? 'Hide Form' : 'New Pipeline'}</button>
         </div>
 
-        {pipelines.map((pipeline) => (
-          <div key={pipeline.id} style={{ padding: '15px', borderLeft: '4px solid #007bff', marginBottom: '10px', background: '#f9f9f9' }}>
-            <h3>{pipeline.name}</h3>
-            <p style={{ fontSize: '12px', color: '#666' }}>Customer: {pipeline.customer_id} | Created: {new Date(pipeline.created_at).toLocaleDateString()}</p>
-            <pre style={{ fontSize: '12px', overflow: 'auto', background: 'white', padding: '10px', borderRadius: '4px' }}>{JSON.stringify(pipeline.config, null, 2)}</pre>
-          </div>
-        ))}
+        {/* Tab Navigation */}
+        <div className="pipeline-tabs">
+          <button
+            className={`tab-button ${activeTab === 'active' ? 'active' : ''}`}
+            onClick={() => setActiveTab('active')}
+          >
+            Active ({activePipelines.length})
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'archived' ? 'active' : ''}`}
+            onClick={() => setActiveTab('archived')}
+          >
+            Archived ({archivedPipelines.length})
+          </button>
+        </div>
+
+        {/* Pipeline List */}
+        <div className="pipeline-list">
+          {displayedPipelines.length === 0 ? (
+            <div className="empty-state">
+              <p>No {activeTab} pipelines found.</p>
+              {activeTab === 'active' && (
+                <button className="button" onClick={() => setShowForm(true)}>Create Your First Pipeline</button>
+              )}
+            </div>
+          ) : (
+            displayedPipelines.map((pipeline) => (
+              <div key={pipeline.id} className={`pipeline-item ${pipeline.archived ? 'archived' : ''}`}>
+                <div className="pipeline-header">
+                  <div className="pipeline-title">
+                    {pipeline.is_template && <span className="template-badge" title="Protected Template">🔒</span>}
+                    <h3>{pipeline.name}</h3>
+                    {pipeline.archived && <span className="archived-badge">Archived</span>}
+                  </div>
+                  <DropdownMenu items={getPipelineMenuItems(pipeline)} />
+                </div>
+                <p className="pipeline-meta">
+                  Created: {new Date(pipeline.created_at).toLocaleDateString()}
+                  {pipeline.archived_at && ` | Archived: ${new Date(pipeline.archived_at).toLocaleDateString()}`}
+                </p>
+                <pre className="pipeline-config">{JSON.stringify(pipeline.config, null, 2)}</pre>
+              </div>
+            ))
+          )}
+        </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          confirmStyle={confirmDialog.confirmStyle}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+        />
+      )}
     </div>
   );
 }
