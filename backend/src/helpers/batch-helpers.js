@@ -306,6 +306,57 @@ async function updateBatchStatus(db, batchId, newStatus) {
   }
 }
 
+/**
+ * Recalculate total output size for a batch
+ * Scans all completed jobs and sums their output file sizes
+ */
+async function recalculateBatchOutputSize(db, batchId) {
+  const fs = require('fs');
+  const path = require('path');
+  
+  try {
+    const OUTPUT_PATH = process.env.OUTPUT_PATH || '/tmp/pipeline-output';
+    
+    // Get all completed jobs in this batch
+    const jobsResult = await db.query(
+      `SELECT id FROM jobs WHERE batch_id = $1 AND status = 'completed'`,
+      [batchId]
+    );
+    
+    let totalSize = 0;
+    
+    // Sum up output file sizes for each job
+    for (const job of jobsResult.rows) {
+      const outputDir = path.join(OUTPUT_PATH, job.id);
+      
+      if (fs.existsSync(outputDir)) {
+        const files = fs.readdirSync(outputDir);
+        
+        for (const file of files) {
+          // Skip input files
+          if (file.startsWith('input_')) continue;
+          
+          const filePath = path.join(outputDir, file);
+          const stats = fs.statSync(filePath);
+          totalSize += stats.size;
+        }
+      }
+    }
+    
+    // Update batch with new total
+    await db.query(
+      `UPDATE batches SET total_output_size = $1, updated_at = NOW() WHERE id = $2`,
+      [totalSize, batchId]
+    );
+    
+    console.log(`Recalculated batch ${batchId} output size: ${totalSize} bytes`);
+    return totalSize;
+  } catch (err) {
+    console.error('Error recalculating batch output size:', err);
+    throw err;
+  }
+}
+
 module.exports = {
   extractCustomerPrefix,
   getNextBatchCounter,
@@ -317,4 +368,5 @@ module.exports = {
   getAllBatches,
   getBatchStats,
   updateBatchStatus,
+  recalculateBatchOutputSize,
 };

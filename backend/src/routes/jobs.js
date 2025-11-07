@@ -7,6 +7,7 @@ const archiver = require('archiver');
 const {
   createBatch,
   calculateTotalSize,
+  recalculateBatchOutputSize,
 } = require('../helpers/batch-helpers');
 
 const router = express.Router();
@@ -74,14 +75,20 @@ router.delete('/:id', async (req, res) => {
     }
 
     const job = jobResult.rows[0];
+    const batchId = job.batch_id;
+
+    // Delete output files first
+    const outputDir = path.join(OUTPUT_PATH, id);
+    if (fs.existsSync(outputDir)) {
+      fs.rmSync(outputDir, { recursive: true, force: true });
+    }
 
     // Delete job from database (this will update batch counts via trigger)
     await global.db.query('DELETE FROM jobs WHERE id = $1', [id]);
 
-    // Delete output files
-    const outputDir = path.join(OUTPUT_PATH, id);
-    if (fs.existsSync(outputDir)) {
-      fs.rmSync(outputDir, { recursive: true, force: true });
+    // Recalculate batch output size
+    if (batchId) {
+      await recalculateBatchOutputSize(global.db, batchId);
     }
 
     res.json({ message: 'Job deleted successfully', job_id: id });
