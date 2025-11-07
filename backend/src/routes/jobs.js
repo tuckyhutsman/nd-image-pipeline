@@ -45,7 +45,7 @@ router.get('/', async (req, res) => {
 router.get('/batch/:batch_id', async (req, res) => {
   try {
     const result = await global.db.query(
-      `SELECT id, pipeline_id, status, input_filename, created_at, updated_at 
+      `SELECT id, pipeline_id, status, input_filename, created_at, started_at, completed_at, failed_at
        FROM jobs 
        WHERE batch_id = $1 
        ORDER BY created_at ASC`,
@@ -313,7 +313,7 @@ router.get('/stats/dashboard', async (req, res) => {
       SELECT 
         status,
         COUNT(*) as count,
-        AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) as avg_duration_seconds
+        AVG(EXTRACT(EPOCH FROM (COALESCE(completed_at, failed_at, NOW()) - created_at))) as avg_duration_seconds
       FROM jobs
       WHERE created_at > NOW() - INTERVAL '1 hour'
       GROUP BY status
