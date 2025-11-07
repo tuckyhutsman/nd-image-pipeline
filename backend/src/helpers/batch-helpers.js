@@ -197,7 +197,7 @@ async function getBatchWithJobs(db, batchId) {
 
     // Fetch all jobs in batch
     const jobsResult = await db.query(
-      `SELECT id, pipeline_id, status, file_name, created_at, updated_at
+      `SELECT id, pipeline_id, status, input_filename, created_at, started_at, completed_at, failed_at
        FROM jobs 
        WHERE batch_id = $1 
        ORDER BY created_at ASC`,
