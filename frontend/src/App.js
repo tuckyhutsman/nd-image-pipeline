@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PipelineEditor from './components/PipelineEditor';
+import PipelineList from './components/PipelineList';
 import JobSubmit from './components/JobSubmit';
 import JobList from './components/JobList';
 import apiClient from './config/api';
@@ -73,7 +74,7 @@ function App() {
 
         {activeTab === 'submit' && <JobSubmit pipelines={pipelines} onJobSubmitted={handleJobSubmitted} />}
         {activeTab === 'jobs' && <JobList jobs={jobs} onRefresh={fetchJobs} />}
-        {activeTab === 'pipelines' && <PipelineEditor key={pipelineRefreshKey} onPipelineSaved={handlePipelineSaved} />}
+        {activeTab === 'pipelines' && <PipelineList pipelines={pipelines} onRefresh={fetchPipelines} />}
       </div>
     </div>
   );
