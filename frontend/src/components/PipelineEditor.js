@@ -193,7 +193,8 @@ const PRESET_TEMPLATES = {
 };
 
 // ISSUE #1 FIX: Accept onPipelineSaved callback from parent
-function PipelineEditor({ onPipelineSaved }) {
+// Sprint 3: Accept editPipelineId, onBack props for integration with PipelineList
+function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
   const [pipelines, setPipelines] = useState([]);
   const [mode, setMode] = useState('list');
   const [editingId, setEditingId] = useState(null);
@@ -240,7 +241,11 @@ function PipelineEditor({ onPipelineSaved }) {
 
   useEffect(() => {
     fetchPipelines();
-  }, []);
+    // If editPipelineId provided, load that pipeline for editing
+    if (editPipelineId) {
+      loadPipelineForEditing(editPipelineId);
+    }
+  }, [editPipelineId]);
 
   const fetchPipelines = async () => {
     try {
@@ -248,6 +253,41 @@ function PipelineEditor({ onPipelineSaved }) {
       setPipelines(response.data);
     } catch (err) {
       setError('Failed to load pipelines: ' + err.message);
+    }
+  };
+
+  const loadPipelineForEditing = async (id) => {
+    try {
+      const response = await apiClient.get(`/pipelines/${id}`);
+      const pipeline = response.data;
+      const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
+      
+      if (config.type === PIPELINE_TYPES.SINGLE_ASSET) {
+        setSingleAssetForm({
+          name: pipeline.name,
+          description: config.description || '',
+          suffix: config.suffix || '',
+          sizing: config.sizing || {},
+          format: config.format || {},
+          color: config.color || {},
+          transparency: config.transparency || {},
+          iccHandling: config.iccHandling || 'embed',
+          resizeFilter: config.resizeFilter || 'Lanczos',
+        });
+        setMode('create-single');
+        setEditingId(id);
+      } else {
+        setMultiAssetForm({
+          name: pipeline.name,
+          description: config.description || '',
+          components: config.components || [],
+          outputArrangement: config.outputArrangement || 'flat',
+        });
+        setMode('create-multi');
+        setEditingId(id);
+      }
+    } catch (err) {
+      setError('Failed to load pipeline: ' + err.message);
     }
   };
 
@@ -445,8 +485,8 @@ function PipelineEditor({ onPipelineSaved }) {
       <div className="pipeline-editor">
         <div className="editor-header">
           <h2>{editingId ? 'Edit' : 'Create'} Single Asset Pipeline</h2>
-          <button className="btn btn-secondary" onClick={() => { setMode('list'); setEditingId(null); }}>
-            Back to List
+          <button className="btn btn-secondary" onClick={() => onBack ? onBack() : setMode('list')}>
+            {onBack ? 'Back to List' : 'Cancel'}
           </button>
         </div>
 

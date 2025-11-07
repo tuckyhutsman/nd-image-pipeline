@@ -4,7 +4,7 @@ import DropdownMenu from './DropdownMenu';
 import ConfirmDialog from './ConfirmDialog';
 import './PipelineList.css';
 
-function PipelineList({ pipelines, onRefresh }) {
+function PipelineList({ pipelines, onRefresh, onEdit }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [config, setConfig] = useState('{}');
@@ -87,7 +87,7 @@ function PipelineList({ pipelines, onRefresh }) {
       // Active pipeline menu
       items.push({
         label: 'Edit',
-        onClick: () => alert('Edit functionality coming soon!'),
+        onClick: () => onEdit(pipeline.id),
       });
 
       items.push({

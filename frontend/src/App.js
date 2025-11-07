@@ -13,6 +13,7 @@ function App() {
   const [jobs, setJobs] = useState([]);
   const [message, setMessage] = useState('');
   const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
+  const [editingPipelineId, setEditingPipelineId] = useState(null); // Track which pipeline is being edited
 
   React.useEffect(() => {
     fetchPipelines();
@@ -44,8 +45,19 @@ function App() {
     setMessage('✓ Pipeline saved successfully!');
     setTimeout(() => setMessage(''), 3000);
     fetchPipelines();
+    // Return to list view after save
+    setEditingPipelineId(null);
     // Trigger refresh key to update PipelineEditor without page reload
     setPipelineRefreshKey(prev => prev + 1);
+  };
+
+  const handleEditPipeline = (pipelineId) => {
+    setEditingPipelineId(pipelineId);
+  };
+
+  const handleBackToList = () => {
+    setEditingPipelineId(null);
+    fetchPipelines();
   };
 
   const handleJobSubmitted = (jobId) => {
@@ -74,7 +86,22 @@ function App() {
 
         {activeTab === 'submit' && <JobSubmit pipelines={pipelines} onJobSubmitted={handleJobSubmitted} />}
         {activeTab === 'jobs' && <JobList jobs={jobs} onRefresh={fetchJobs} />}
-        {activeTab === 'pipelines' && <PipelineList pipelines={pipelines} onRefresh={fetchPipelines} />}
+        {activeTab === 'pipelines' && (
+          editingPipelineId ? (
+            <PipelineEditor 
+              key={pipelineRefreshKey} 
+              editPipelineId={editingPipelineId}
+              onPipelineSaved={handlePipelineSaved}
+              onBack={handleBackToList}
+            />
+          ) : (
+            <PipelineList 
+              pipelines={pipelines} 
+              onRefresh={fetchPipelines}
+              onEdit={handleEditPipeline}
+            />
+          )
+        )}
       </div>
     </div>
   );
