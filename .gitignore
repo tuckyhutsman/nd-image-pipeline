@@ -36,5 +36,9 @@ postgres_data/
 redis_data/
 *.sql
 
+# BUT: Allow migration files and init-db.sql
+!backend/migrations/*.sql
+!init-db.sql
+
 # Temporary
 *.tmp
