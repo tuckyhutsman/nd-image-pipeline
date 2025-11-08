@@ -42,6 +42,26 @@ const JobList = ({ jobs, onRefresh }) => {
     }
   };
 
+  // Resubmit failed jobs in a batch
+  const handleResubmitBatch = async (batch) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Resubmit Failed Jobs?',
+      message: `This will resubmit all ${batch.failed_count} failed job(s) in "${batch.custom_name || batch.base_directory_name}". The jobs will be added to the queue for processing.`,
+      onConfirm: async () => {
+        try {
+          const response = await apiClient.post(`/batches/${batch.batch_id}/resubmit`);
+          const result = response.data;
+          alert(`Successfully resubmitted ${result.resubmitted_count} job(s)`);
+          onRefresh(); // Refresh the list
+        } catch (err) {
+          console.error('Error resubmitting batch:', err);
+          alert(`Failed to resubmit jobs: ${err.message}`);
+        }
+      },
+    });
+  };
+
   // Delete entire batch
   const handleDeleteBatch = async (batch) => {
     setConfirmDialog({
@@ -56,6 +76,28 @@ const JobList = ({ jobs, onRefresh }) => {
         } catch (err) {
           console.error('Error deleting batch:', err);
           alert(`Failed to delete batch: ${err.message}`);
+        }
+      },
+    });
+  };
+
+  // Resubmit individual job
+  const handleResubmitJob = async (job) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Resubmit Job?',
+      message: `Resubmit "${job.input_filename}"? The job will be added back to the queue for processing.`,
+      onConfirm: async () => {
+        try {
+          await apiClient.post(`/jobs/${job.id}/resubmit`);
+          alert('Job resubmitted successfully');
+          // Reload batch jobs
+          await loadBatchJobs(selectedBatchId);
+          // Refresh the main list
+          onRefresh();
+        } catch (err) {
+          console.error('Error resubmitting job:', err);
+          alert(`Failed to resubmit job: ${err.message}`);
         }
       },
     });
@@ -314,6 +356,15 @@ const JobList = ({ jobs, onRefresh }) => {
                     {formatDate(batch.batch_created_at)}
                   </td>
                   <td className="actions-cell">
+                    {batchStatus === 'failed' && batch.failed_count > 0 && (
+                      <button
+                        className="resubmit-btn"
+                        onClick={() => handleResubmitBatch(batch)}
+                        title="Resubmit all failed jobs in this batch"
+                      >
+                        ↻ Resubmit Failed
+                      </button>
+                    )}
                     {batchStatus === 'completed' && (
                       <button
                         className="download-btn"
@@ -552,6 +603,11 @@ const JobList = ({ jobs, onRefresh }) => {
                         <td style={{ padding: '8px', textAlign: 'right' }}>
                           <DropdownMenu
                             items={[
+                              ...(job.status === 'failed' ? [{
+                                label: 'Resubmit Job',
+                                icon: '↻',
+                                action: 'resubmit',
+                              }] : []),
                               {
                                 label: 'Delete Job',
                                 icon: '🗑',
@@ -562,6 +618,8 @@ const JobList = ({ jobs, onRefresh }) => {
                             onSelect={(action) => {
                               if (action === 'delete') {
                                 handleDeleteJob(job);
+                              } else if (action === 'resubmit') {
+                                handleResubmitJob(job);
                               }
                             }}
                           />

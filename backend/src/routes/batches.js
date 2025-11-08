@@ -226,6 +226,91 @@ router.patch('/:batch_id/reset-name', async (req, res) => {
   }
 });
 
+// POST /api/batches/:batch_id/resubmit - Resubmit all failed jobs in a batch
+router.post('/:batch_id/resubmit', async (req, res) => {
+  try {
+    const { batch_id } = req.params;
+
+    // Get batch to verify it exists
+    const batch = await getBatchWithJobs(global.db, batch_id);
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+
+    // Get all failed jobs in this batch
+    const failedJobsResult = await global.db.query(
+      `SELECT id, pipeline_id, input_filename, input_base64 
+       FROM jobs 
+       WHERE batch_id = $1 AND status = 'failed'`,
+      [batch_id]
+    );
+
+    if (failedJobsResult.rows.length === 0) {
+      return res.status(400).json({ 
+        error: 'No failed jobs found in this batch',
+        failed_count: 0 
+      });
+    }
+
+    const failedJobs = failedJobsResult.rows;
+    let resubmittedCount = 0;
+    const errors = [];
+
+    // Resubmit each failed job
+    for (const job of failedJobs) {
+      try {
+        // Check if we have the original input data
+        if (!job.input_base64) {
+          errors.push(`Job ${job.id}: original input data not available`);
+          continue;
+        }
+
+        // Reset job status to queued
+        await global.db.query(
+          `UPDATE jobs 
+           SET status = 'queued', 
+               error_message = NULL, 
+               failed_at = NULL,
+               started_at = NULL,
+               completed_at = NULL
+           WHERE id = $1`,
+          [job.id]
+        );
+
+        // Re-queue the job
+        await global.imageQueue.add('process-image', {
+          job_id: job.id,
+          pipeline_id: job.pipeline_id,
+          file_name: job.input_filename,
+          file_data: job.input_base64,
+        });
+
+        resubmittedCount++;
+        console.log(`Job ${job.id} resubmitted successfully`);
+      } catch (jobErr) {
+        console.error(`Error resubmitting job ${job.id}:`, jobErr);
+        errors.push(`Job ${job.id}: ${jobErr.message}`);
+      }
+    }
+
+    const response = {
+      message: `Resubmitted ${resubmittedCount} of ${failedJobs.length} failed job(s)`,
+      batch_id,
+      total_failed: failedJobs.length,
+      resubmitted_count: resubmittedCount,
+    };
+
+    if (errors.length > 0) {
+      response.errors = errors;
+    }
+
+    res.json(response);
+  } catch (err) {
+    console.error('Error resubmitting batch:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE /api/batches/:batch_id - Delete batch and all its jobs
 router.delete('/:batch_id', async (req, res) => {
   try {

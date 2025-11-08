@@ -342,6 +342,70 @@ router.post('/batch', async (req, res) => {
   }
 });
 
+// POST /api/jobs/:id/resubmit - Resubmit a failed job
+router.post('/:id/resubmit', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get job details
+    const jobResult = await global.db.query(
+      'SELECT * FROM jobs WHERE id = $1',
+      [id]
+    );
+    
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const job = jobResult.rows[0];
+
+    // Only allow resubmitting failed jobs
+    if (job.status !== 'failed') {
+      return res.status(400).json({ 
+        error: `Cannot resubmit job with status "${job.status}". Only failed jobs can be resubmitted.` 
+      });
+    }
+
+    // Check if we have the original input data
+    if (!job.input_base64) {
+      return res.status(400).json({ 
+        error: 'Job cannot be resubmitted: original input data not available' 
+      });
+    }
+
+    // Reset job status to queued
+    await global.db.query(
+      `UPDATE jobs 
+       SET status = 'queued', 
+           error_message = NULL, 
+           failed_at = NULL,
+           started_at = NULL,
+           completed_at = NULL
+       WHERE id = $1`,
+      [id]
+    );
+
+    // Re-queue the job
+    await global.imageQueue.add('process-image', {
+      job_id: id,
+      pipeline_id: job.pipeline_id,
+      file_name: job.input_filename,
+      file_data: job.input_base64,
+    });
+
+    console.log(`Job ${id} resubmitted successfully`);
+
+    res.json({ 
+      message: 'Job resubmitted successfully',
+      job_id: id,
+      status: 'queued'
+    });
+  } catch (err) {
+    console.error('Error resubmitting job:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/jobs/stats/dashboard - Real-time monitoring stats
 router.get('/stats/dashboard', async (req, res) => {
   try {

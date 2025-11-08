@@ -190,6 +190,30 @@ body.dark-mode .status-badge.status-processing {
   justify-content: flex-end;
 }
 
+/* Resubmit Button */
+.resubmit-btn {
+  padding: 0.5rem 1rem;
+  background: var(--blue);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast) var(--ease-smooth);
+  white-space: nowrap;
+}
+
+.resubmit-btn:hover {
+  background: #2563eb;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.resubmit-btn:active {
+  transform: translateY(0);
+}
+
 /* Download Button */
 .download-btn {
   padding: 0.5rem 1rem;
