@@ -145,8 +145,8 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
         </div>
       )}
 
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="pipeline-list-wrapper">
+        <div className="pipeline-list-header">
           <h2>Pipelines</h2>
           <button className="button" onClick={() => onEdit(null)}>New Pipeline</button>
         </div>
