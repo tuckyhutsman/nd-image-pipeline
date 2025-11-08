@@ -1,6 +1,7 @@
 // backend/src/worker.js
 // Image processing worker - processes jobs from Redis queue with full Stage 0 & Stage 1 implementation
 // Includes automatic batch cleanup service
+// Supports both single-asset and multi-asset pipelines
 
 const { Worker } = require('bullmq');
 const sharp = require('sharp');
@@ -75,9 +76,9 @@ class ImagePipelineWorker {
         ['processing', job_id]
       );
 
-      // Fetch pipeline configuration
+      // Fetch pipeline configuration AND type
       const pipelineResult = await db.query(
-        'SELECT config FROM pipelines WHERE id = $1',
+        'SELECT config, pipeline_type FROM pipelines WHERE id = $1',
         [pipeline_id]
       );
 
@@ -89,6 +90,9 @@ class ImagePipelineWorker {
       if (typeof pipelineConfig === 'string') {
         pipelineConfig = JSON.parse(pipelineConfig);
       }
+
+      const pipelineType = pipelineResult.rows[0].pipeline_type || 'single';
+      console.log(`  Pipeline type: ${pipelineType}`);
 
       // STAGE 0: Input Validation & Normalization
       console.log(`  Stage 0: Validating and normalizing input...`);
@@ -112,9 +116,32 @@ class ImagePipelineWorker {
       const base64Data = file_data.includes(',') ? file_data.split(',')[1] : file_data;
       await fs.writeFile(inputPath, Buffer.from(base64Data, 'base64'));
 
-      // STAGE 1: Process through pipeline
-      console.log(`  Stage 1: Processing through pipeline...`);
-      const processResult = await this.processSingleAsset(pipelineConfig, inputPath, outputDir, file_name);
+      // STAGE 1: Process through pipeline (route based on type)
+      console.log(`  Stage 1: Processing through ${pipelineType} pipeline...`);
+      
+      let processResult;
+      let totalOutputSize = 0;
+
+      if (pipelineType === 'multi-asset') {
+        // Multi-asset: process through all components
+        processResult = await this.processMultiAssetJob(
+          job_id,
+          pipeline_id,
+          file_name,
+          inputPath,
+          outputDir
+        );
+        totalOutputSize = processResult.totalSize;
+      } else {
+        // Single asset: existing logic
+        processResult = await this.processSingleAsset(
+          pipelineConfig,
+          inputPath,
+          outputDir,
+          file_name
+        );
+        totalOutputSize = processResult.filesize;
+      }
 
       // Update job status to completed
       await db.query(
@@ -128,7 +155,7 @@ class ImagePipelineWorker {
           `UPDATE batches 
            SET total_output_size = total_output_size + $1 
            WHERE id = (SELECT batch_id FROM jobs WHERE id = $2)`,
-          [processResult.filesize, job_id]
+          [totalOutputSize, job_id]
         );
       } catch (sizeErr) {
         console.warn('Failed to update batch output size:', sizeErr.message);
@@ -139,9 +166,11 @@ class ImagePipelineWorker {
       return {
         success: true,
         job_id,
-        output_file: processResult.outputFilename,
-        output_size: processResult.filesize,
-        processing_time_ms: processResult.duration,
+        output_file: pipelineType === 'multi-asset' ? processResult.outputs : processResult.outputFilename,
+        output_size: totalOutputSize,
+        processing_time_ms: pipelineType === 'multi-asset' ? processResult.totalDuration : processResult.duration,
+        pipeline_type: pipelineType,
+        ...(pipelineType === 'multi-asset' && { component_count: processResult.componentCount })
       };
 
     } catch (error) {
@@ -158,6 +187,101 @@ class ImagePipelineWorker {
 
       throw error;
     }
+  }
+
+  // NEW: Process a multi-asset pipeline job
+  async processMultiAssetJob(job_id, pipeline_id, file_name, inputPath, outputDir) {
+    const startTime = Date.now();
+    
+    console.log(`  Multi-Asset: Fetching component pipelines...`);
+    
+    // Fetch all component pipelines
+    const componentsResult = await db.query(`
+      SELECT 
+        pc.id as component_id,
+        pc.component_pipeline_id,
+        pc.custom_suffix,
+        pc.order_index,
+        p.name as pipeline_name,
+        p.config as pipeline_config
+      FROM pipeline_components pc
+      JOIN pipelines p ON p.id = pc.component_pipeline_id
+      WHERE pc.parent_pipeline_id = $1
+      ORDER BY pc.order_index
+    `, [pipeline_id]);
+
+    if (componentsResult.rows.length === 0) {
+      throw new Error(`Multi-asset pipeline ${pipeline_id} has no components configured`);
+    }
+
+    console.log(`  Multi-Asset: Processing through ${componentsResult.rows.length} components...`);
+
+    const outputs = [];
+    let totalSize = 0;
+
+    // Process through each component pipeline
+    for (const component of componentsResult.rows) {
+      try {
+        console.log(`  → Component ${component.order_index + 1}/${componentsResult.rows.length}: ${component.pipeline_name}`);
+        
+        // Parse component pipeline config
+        let componentConfig = component.pipeline_config;
+        if (typeof componentConfig === 'string') {
+          componentConfig = JSON.parse(componentConfig);
+        }
+
+        // Generate output suffix
+        // Priority: 1) custom_suffix, 2) pipeline name (sanitized), 3) order index
+        let suffix;
+        if (component.custom_suffix) {
+          suffix = component.custom_suffix;
+        } else {
+          // Sanitize pipeline name for use as suffix
+          suffix = '_' + component.pipeline_name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        }
+        
+        // Override config suffix
+        componentConfig.suffix = suffix;
+
+        // Process this component
+        const result = await this.processSingleAsset(
+          componentConfig,
+          inputPath,
+          outputDir,
+          file_name
+        );
+
+        outputs.push({
+          component_id: component.component_id,
+          component_name: component.pipeline_name,
+          output_file: result.outputFilename,
+          output_size: result.filesize,
+          duration_ms: result.duration
+        });
+
+        totalSize += result.filesize;
+
+        console.log(`    ✓ ${result.outputFilename} (${Math.round(result.filesize / 1024)}KB, ${result.duration}ms)`);
+
+      } catch (componentError) {
+        console.error(`    ✗ Component "${component.pipeline_name}" failed: ${componentError.message}`);
+        throw new Error(`Multi-asset processing failed at component "${component.pipeline_name}": ${componentError.message}`);
+      }
+    }
+
+    const totalDuration = Date.now() - startTime;
+
+    console.log(`  ✓ Multi-Asset complete: ${outputs.length} outputs, ${Math.round(totalSize / 1024)}KB total, ${totalDuration}ms`);
+
+    return {
+      outputs,
+      totalSize,
+      totalDuration,
+      componentCount: outputs.length
+    };
   }
 
   // STAGE 0: Validation & Normalization
