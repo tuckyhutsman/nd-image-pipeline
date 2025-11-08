@@ -146,7 +146,7 @@
 
   .tab-button.active {
     border-bottom: none;
-    border-left-color: #007bff;
+    border-left-color: var(--blue);
   }
 
   .pipeline-header {

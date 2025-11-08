@@ -44,22 +44,22 @@
   --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
-/* Dark Mode Colors */
+/* Dark Mode Colors - Enhanced for better contrast */
 body.dark-mode {
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #252525;
-  --bg-tertiary: #2b2b2b;
-  --bg-card: #2d2d2d;
-  --bg-header: #1a1a1a;
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #222222;
+  --bg-tertiary: #2a2a2a;
+  --bg-card: #252525;
+  --bg-header: #161616;
   
-  --text-primary: #e4e4e7;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --text-inverse: #18181b;
+  --text-primary: #f0f0f0;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
+  --text-inverse: #1a1a1a;
   
-  --border-color: #3f3f46;
-  --border-light: #27272a;
-  --border-dark: #52525b;
+  --border-color: #404040;
+  --border-light: #333333;
+  --border-dark: #4a4a4a;
   
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.6);
