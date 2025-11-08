@@ -196,7 +196,6 @@ const PRESET_TEMPLATES = {
 // Sprint 3: Accept editPipelineId, onBack props for integration with PipelineList
 function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
   const [pipelines, setPipelines] = useState([]);
-  const [singleAssetPipelines, setSingleAssetPipelines] = useState([]);
   const [mode, setMode] = useState('list');
   const [editingId, setEditingId] = useState(null);
   const [pipelineType, setPipelineType] = useState(PIPELINE_TYPES.SINGLE_ASSET);
@@ -242,7 +241,6 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
 
   useEffect(() => {
     fetchPipelines();
-    fetchSingleAssetPipelines();
     // If editPipelineId provided, load that pipeline for editing
     if (editPipelineId && editPipelineId !== 'new') {
       loadPipelineForEditing(editPipelineId);
@@ -259,21 +257,6 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
       setPipelines(response.data);
     } catch (err) {
       setError('Failed to load pipelines: ' + err.message);
-    }
-  };
-
-  const fetchSingleAssetPipelines = async () => {
-    try {
-      const response = await apiClient.get('/pipelines');
-      // Filter for single-asset pipelines only
-      const allPipelines = response.data;
-      const singleAsset = allPipelines.filter(p => {
-        const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
-        return config.type === PIPELINE_TYPES.SINGLE_ASSET;
-      });
-      setSingleAssetPipelines(singleAsset);
-    } catch (err) {
-      console.error('Failed to load single-asset pipelines:', err);
     }
   };
 
@@ -370,118 +353,6 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSaveMultiAsset = async (e) => {
-    e.preventDefault();
-    
-    if (!multiAssetForm.name.trim()) {
-      setError('Pipeline name is required');
-      return;
-    }
-
-    if (multiAssetForm.components.length === 0) {
-      setError('Multi-asset pipeline must have at least one component');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const payload = {
-        name: multiAssetForm.name,
-        customer_id: 'default',
-        config: {
-          type: PIPELINE_TYPES.MULTI_ASSET,
-          description: multiAssetForm.description,
-          components: multiAssetForm.components,
-          outputArrangement: multiAssetForm.outputArrangement,
-        },
-      };
-
-      if (editingId) {
-        await apiClient.put(`/pipelines/${editingId}`, payload);
-        setSuccess('Multi-asset pipeline updated');
-      } else {
-        await apiClient.post('/pipelines', payload);
-        setSuccess('Multi-asset pipeline created');
-      }
-
-      setMultiAssetForm({
-        name: '',
-        description: '',
-        components: [],
-        outputArrangement: 'flat',
-      });
-
-      setEditingId(null);
-      setMode('list');
-      await fetchPipelines();
-      setTimeout(() => setSuccess(''), 1500);
-      
-      if (onPipelineSaved) {
-        setTimeout(() => onPipelineSaved(), 1800);
-      }
-    } catch (err) {
-      setError('Error saving multi-asset pipeline: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addComponent = (singleAssetId) => {
-    if (!singleAssetId) return;
-    
-    // Check if already added
-    if (multiAssetForm.components.find(c => c.ref === singleAssetId)) {
-      setError('This pipeline is already added');
-      setTimeout(() => setError(''), 2000);
-      return;
-    }
-    
-    const newComponent = {
-      ref: singleAssetId,
-      order: multiAssetForm.components.length + 1,
-    };
-    
-    setMultiAssetForm({
-      ...multiAssetForm,
-      components: [...multiAssetForm.components, newComponent]
-    });
-  };
-
-  const removeComponent = (ref) => {
-    const updatedComponents = multiAssetForm.components
-      .filter(c => c.ref !== ref)
-      .map((c, i) => ({ ...c, order: i + 1 }));
-    
-    setMultiAssetForm({
-      ...multiAssetForm,
-      components: updatedComponents
-    });
-  };
-
-  const moveComponentUp = (index) => {
-    if (index === 0) return;
-    const newComponents = [...multiAssetForm.components];
-    [newComponents[index], newComponents[index - 1]] = [newComponents[index - 1], newComponents[index]];
-    
-    setMultiAssetForm({
-      ...multiAssetForm,
-      components: newComponents.map((c, i) => ({ ...c, order: i + 1 }))
-    });
-  };
-
-  const moveComponentDown = (index) => {
-    if (index === multiAssetForm.components.length - 1) return;
-    const newComponents = [...multiAssetForm.components];
-    [newComponents[index], newComponents[index + 1]] = [newComponents[index + 1], newComponents[index]];
-    
-    setMultiAssetForm({
-      ...multiAssetForm,
-      components: newComponents.map((c, i) => ({ ...c, order: i + 1 }))
-    });
   };
 
   const handleApplyTemplate = (templateKey) => {
@@ -1090,93 +961,13 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
 
           <div className="form-section">
             <h3>Pipeline Components</h3>
-            <p className="info-text">Multi-asset pipelines compose multiple single-asset pipelines. Each input file generates one output per component.</p>
-            
-            <div className="components-selector">
-              <label>Add Pipeline Component</label>
-              <select 
-                onChange={(e) => {
-                  addComponent(e.target.value);
-                  e.target.value = '';
-                }}
-                defaultValue=""
-              >
-                <option value="">-- Select a pipeline to add --</option>
-                {singleAssetPipelines.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {singleAssetPipelines.length === 0 && (
-                <small className="helper-text">No single-asset pipelines available. Create one first!</small>
-              )}
-            </div>
-
-            {multiAssetForm.components.length > 0 && (
-              <div className="selected-components">
-                <h4>Selected Components ({multiAssetForm.components.length})</h4>
-                {multiAssetForm.components.map((comp, idx) => {
-                  const pipeline = singleAssetPipelines.find(p => p.id === comp.ref);
-                  const config = pipeline ? (typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config) : null;
-                  
-                  return (
-                    <div className="component-item" key={comp.ref}>
-                      <div className="component-order">{idx + 1}</div>
-                      <div className="component-info">
-                        <span className="component-name">{pipeline?.name || 'Unknown Pipeline'}</span>
-                        {config?.suffix && <span className="component-suffix">→ {config.suffix}</span>}
-                      </div>
-                      <div className="component-actions">
-                        <button 
-                          type="button"
-                          onClick={() => moveComponentUp(idx)}
-                          disabled={idx === 0}
-                          className="btn-icon"
-                          title="Move up"
-                        >
-                          ↑
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => moveComponentDown(idx)}
-                          disabled={idx === multiAssetForm.components.length - 1}
-                          className="btn-icon"
-                          title="Move down"
-                        >
-                          ↓
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => removeComponent(comp.ref)}
-                          className="btn-icon btn-remove"
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {multiAssetForm.components.length === 0 && (
-              <div className="empty-state">
-                <p>No components added yet. Select pipelines above to build your multi-asset workflow.</p>
-              </div>
-            )}
+            <p className="info">Multi-asset pipelines compose multiple single-asset pipelines. Each input file generates one output per component.</p>
+            <p className="placeholder">Component selection UI - coming in next iteration</p>
           </div>
 
           <div className="form-actions">
-            <button 
-              type="button" 
-              className="btn btn-primary" 
-              onClick={handleSaveMultiAsset}
-              disabled={loading || multiAssetForm.components.length === 0}
-            >
-              {loading ? 'Saving...' : editingId ? 'Update Multi-Asset Pipeline' : 'Create Multi-Asset Pipeline'}
-            </button>
             <button type="button" className="btn btn-secondary" onClick={() => { setMode('list'); setEditingId(null); }}>
-              Cancel
+              Back
             </button>
           </div>
         </form>
