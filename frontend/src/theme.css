@@ -1,0 +1,104 @@
+/* Dark Mode Theme Variables */
+
+:root {
+  /* Light mode colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  --bg-card: #ffffff;
+  --bg-hover: #f5f5f5;
+  
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-tertiary: #adb5bd;
+  
+  --border-color: #dee2e6;
+  --border-light: #e9ecef;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
+  
+  --success-bg: #d4edda;
+  --success-text: #155724;
+  --success-border: #c3e6cb;
+  
+  --error-bg: #f8d7da;
+  --error-text: #721c24;
+  --error-border: #f5c6cb;
+  
+  --warning-bg: #fff3cd;
+  --warning-text: #856404;
+  --warning-border: #ffeaa7;
+  
+  --info-bg: #d1ecf1;
+  --info-text: #0c5460;
+  --info-border: #bee5eb;
+  
+  --primary: #007bff;
+  --primary-hover: #0056b3;
+  --primary-light: #e7f3ff;
+  
+  --danger: #dc3545;
+  --danger-hover: #c82333;
+  
+  --archived-opacity: 0.7;
+}
+
+/* Dark mode colors */
+[data-theme="dark"] {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #242424;
+  --bg-tertiary: #2d2d2d;
+  --bg-card: #242424;
+  --bg-hover: #2d2d2d;
+  
+  --text-primary: #e0e0e0;
+  --text-secondary: #b0b0b0;
+  --text-tertiary: #808080;
+  
+  --border-color: #404040;
+  --border-light: #353535;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+  
+  --success-bg: #1e4620;
+  --success-text: #7bc67e;
+  --success-border: #2d5a2f;
+  
+  --error-bg: #4a1c1c;
+  --error-text: #f5c2c7;
+  --error-border: #5a2a2a;
+  
+  --warning-bg: #4a4120;
+  --warning-text: #ffd966;
+  --warning-border: #5a5030;
+  
+  --info-bg: #1c3a4a;
+  --info-text: #9ed9f7;
+  --info-border: #2a4a5a;
+  
+  --primary: #4a9eff;
+  --primary-hover: #6bb0ff;
+  --primary-light: #1a3a5a;
+  
+  --danger: #ff5566;
+  --danger-hover: #ff7788;
+  
+  --archived-opacity: 0.5;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, 
+              color 0.3s ease, 
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+/* Disable transitions during initial load */
+.no-transition * {
+  transition: none !important;
+}

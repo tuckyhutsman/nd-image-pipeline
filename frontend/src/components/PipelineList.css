@@ -2,7 +2,7 @@
 .pipeline-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid var(--border-color);
   margin-bottom: 24px;
 }
 
@@ -13,21 +13,21 @@
   border-bottom: 3px solid transparent;
   font-size: 15px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast) var(--ease-smooth);
   position: relative;
   bottom: -2px;
 }
 
 .tab-button:hover {
-  color: #007bff;
-  background: #f8f9fa;
+  color: var(--blue);
+  background: var(--bg-tertiary);
 }
 
 .tab-button.active {
-  color: #007bff;
-  border-bottom-color: #007bff;
+  color: var(--blue);
+  border-bottom-color: var(--blue);
   font-weight: 600;
 }
 
@@ -41,20 +41,21 @@
 /* Pipeline Item */
 .pipeline-item {
   padding: 20px;
-  border-left: 4px solid #007bff;
-  background: #f9f9f9;
+  border-left: 4px solid var(--blue);
+  background: var(--bg-tertiary);
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast) var(--ease-smooth);
 }
 
 .pipeline-item:hover {
-  background: #f5f5f5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
+  transform: translateX(2px);
 }
 
 .pipeline-item.archived {
   opacity: 0.7;
-  border-left-color: #95a5a6;
+  border-left-color: var(--text-muted);
 }
 
 /* Pipeline Header */
@@ -76,7 +77,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
 }
 
 /* Badges */
@@ -88,8 +89,8 @@
 .archived-badge {
   display: inline-block;
   padding: 4px 10px;
-  background: #95a5a6;
-  color: white;
+  background: var(--text-muted);
+  color: var(--text-inverse);
   border-radius: 12px;
   font-size: 11px;
   font-weight: 600;
@@ -100,7 +101,7 @@
 /* Pipeline Meta */
 .pipeline-meta {
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
   margin: 0 0 12px 0;
 }
 
@@ -108,20 +109,22 @@
 .pipeline-config {
   font-size: 12px;
   overflow: auto;
-  background: white;
+  background: var(--bg-card);
   padding: 12px;
   border-radius: 4px;
   margin: 0;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   font-family: 'Courier New', Courier, monospace;
   max-height: 300px;
+  color: var(--text-primary);
 }
 
 /* Empty State */
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #666;
+  color: var(--text-secondary);
+  animation: fadeIn var(--transition-slow) var(--ease-smooth);
 }
 
 .empty-state p {

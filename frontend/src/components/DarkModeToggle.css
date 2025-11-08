@@ -1,0 +1,66 @@
+/* Dark Mode Toggle Button */
+
+.dark-mode-toggle {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all var(--transition-normal) var(--ease-smooth);
+  padding: 0;
+}
+
+.dark-mode-toggle:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--blue);
+  color: var(--blue);
+  transform: scale(1.05);
+}
+
+.dark-mode-toggle:active {
+  transform: scale(0.95);
+}
+
+.dark-mode-toggle svg {
+  transition: transform var(--transition-normal) var(--ease-smooth);
+}
+
+.dark-mode-toggle:hover svg {
+  transform: rotate(15deg);
+}
+
+/* Animation when switching modes */
+body.dark-mode .dark-mode-toggle svg {
+  animation: moonRise 0.5s var(--ease-smooth);
+}
+
+body:not(.dark-mode) .dark-mode-toggle svg {
+  animation: sunRise 0.5s var(--ease-smooth);
+}
+
+@keyframes moonRise {
+  from {
+    transform: translateY(10px) rotate(-45deg);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes sunRise {
+  from {
+    transform: scale(0.5) rotate(-180deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}

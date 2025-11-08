@@ -3,7 +3,9 @@ import PipelineEditor from './components/PipelineEditor';
 import PipelineList from './components/PipelineList';
 import JobSubmit from './components/JobSubmit';
 import JobList from './components/JobList';
+import DarkModeToggle from './components/DarkModeToggle';
 import apiClient from './config/api';
+import './styles/theme.css';
 import './App.css';
 import './components/PipelineEditor.css';
 
@@ -71,8 +73,13 @@ function App() {
     <div className="app">
       <div className="header">
         <div className="container">
-          <h1>🖼️ Image Processing Pipeline</h1>
-          <p>Professional batch image processing for your team</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1>🖼️ Image Processing Pipeline</h1>
+              <p>Professional batch image processing for your team</p>
+            </div>
+            <DarkModeToggle />
+          </div>
         </div>
       </div>
 

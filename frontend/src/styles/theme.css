@@ -1,0 +1,205 @@
+/* Global CSS Variables and Dark Mode Support */
+/* Applied to the entire application */
+
+:root {
+  /* Light Mode Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f5f5f5;
+  --bg-card: #ffffff;
+  --bg-header: #ffffff;
+  
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --text-muted: #adb5bd;
+  --text-inverse: #ffffff;
+  
+  --border-color: #dee2e6;
+  --border-light: #e9ecef;
+  --border-dark: #ced4da;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  
+  --blue: #007bff;
+  --blue-hover: #0056b3;
+  --green: #28a745;
+  --red: #dc3545;
+  --yellow: #ffc107;
+  --orange: #fd7e14;
+  
+  --success-bg: #d4edda;
+  --success-text: #155724;
+  --error-bg: #f8d7da;
+  --error-text: #721c24;
+  --warning-bg: #fff3cd;
+  --warning-text: #856404;
+  
+  /* Animation Timings */
+  --transition-fast: 150ms;
+  --transition-normal: 250ms;
+  --transition-slow: 350ms;
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Dark Mode Colors */
+body.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #242424;
+  --bg-card: #2d2d2d;
+  --bg-header: #1f1f1f;
+  
+  --text-primary: #e8e8e8;
+  --text-secondary: #a0a0a0;
+  --text-muted: #707070;
+  --text-inverse: #1a1a1a;
+  
+  --border-color: #404040;
+  --border-light: #383838;
+  --border-dark: #505050;
+  
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  
+  --blue: #4a9eff;
+  --blue-hover: #6bb0ff;
+  --green: #4caf50;
+  --red: #f44336;
+  --yellow: #ffb300;
+  --orange: #ff9800;
+  
+  --success-bg: #1e4620;
+  --success-text: #81c784;
+  --error-bg: #5c1c1c;
+  --error-text: #ef5350;
+  --warning-bg: #4a3c1e;
+  --warning-text: #ffb74d;
+}
+
+/* Smooth transitions on theme change */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color var(--transition-normal) var(--ease-smooth),
+              color var(--transition-normal) var(--ease-smooth);
+}
+
+/* Global Animations */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Utility Animation Classes */
+
+.fade-in {
+  animation: fadeIn var(--transition-normal) var(--ease-smooth);
+}
+
+.slide-up {
+  animation: slideUp var(--transition-normal) var(--ease-smooth);
+}
+
+.slide-down {
+  animation: slideDown var(--transition-normal) var(--ease-smooth);
+}
+
+.scale-in {
+  animation: scaleIn var(--transition-normal) var(--ease-bounce);
+}
+
+.pulse {
+  animation: pulse 2s var(--ease-smooth) infinite;
+}
+
+/* Stagger animations for lists */
+.stagger-fade-in {
+  animation: slideUp var(--transition-normal) var(--ease-smooth);
+}
+
+.stagger-fade-in:nth-child(1) { animation-delay: 0ms; }
+.stagger-fade-in:nth-child(2) { animation-delay: 50ms; }
+.stagger-fade-in:nth-child(3) { animation-delay: 100ms; }
+.stagger-fade-in:nth-child(4) { animation-delay: 150ms; }
+.stagger-fade-in:nth-child(5) { animation-delay: 200ms; }
+.stagger-fade-in:nth-child(6) { animation-delay: 250ms; }
+.stagger-fade-in:nth-child(7) { animation-delay: 300ms; }
+.stagger-fade-in:nth-child(8) { animation-delay: 350ms; }
+.stagger-fade-in:nth-child(9) { animation-delay: 400ms; }
+.stagger-fade-in:nth-child(10) { animation-delay: 450ms; }
+
+/* Smooth transitions for interactive elements */
+button, a, input, select, textarea {
+  transition: all var(--transition-fast) var(--ease-smooth);
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -177,8 +177,8 @@ function PipelineList({ pipelines, onRefresh, onEdit }) {
               )}
             </div>
           ) : (
-            displayedPipelines.map((pipeline) => (
-              <div key={pipeline.id} className={`pipeline-item ${pipeline.archived ? 'archived' : ''}`}>
+            displayedPipelines.map((pipeline, index) => (
+              <div key={pipeline.id} className={`pipeline-item ${pipeline.archived ? 'archived' : ''} stagger-fade-in`}>
                 <div className="pipeline-header">
                   <div className="pipeline-title">
                     {pipeline.is_template && <span className="template-badge" title="Protected Template">🔒</span>}
