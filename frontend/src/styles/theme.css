@@ -46,38 +46,38 @@
 
 /* Dark Mode Colors */
 body.dark-mode {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
-  --bg-tertiary: #242424;
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252525;
+  --bg-tertiary: #2b2b2b;
   --bg-card: #2d2d2d;
-  --bg-header: #1f1f1f;
+  --bg-header: #1a1a1a;
   
-  --text-primary: #e8e8e8;
-  --text-secondary: #a0a0a0;
-  --text-muted: #707070;
-  --text-inverse: #1a1a1a;
+  --text-primary: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-inverse: #18181b;
   
-  --border-color: #404040;
-  --border-light: #383838;
-  --border-dark: #505050;
+  --border-color: #3f3f46;
+  --border-light: #27272a;
+  --border-dark: #52525b;
   
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.7);
   
-  --blue: #4a9eff;
-  --blue-hover: #6bb0ff;
-  --green: #4caf50;
-  --red: #f44336;
-  --yellow: #ffb300;
-  --orange: #ff9800;
+  --blue: #60a5fa;
+  --blue-hover: #3b82f6;
+  --green: #4ade80;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --orange: #fb923c;
   
-  --success-bg: #1e4620;
-  --success-text: #81c784;
-  --error-bg: #5c1c1c;
-  --error-text: #ef5350;
-  --warning-bg: #4a3c1e;
-  --warning-text: #ffb74d;
+  --success-bg: #14532d;
+  --success-text: #86efac;
+  --error-bg: #7f1d1d;
+  --error-text: #fca5a5;
+  --warning-bg: #713f12;
+  --warning-text: #fcd34d;
 }
 
 /* Smooth transitions on theme change */
