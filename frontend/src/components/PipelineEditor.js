@@ -1272,7 +1272,7 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
               >
                 <option value="">-- Select a pipeline to add --</option>
                 {singleAssetPipelines
-                  .filter(p => !multiAssetForm.components.find(c => c.ref === p.id))
+                  .filter(p => !multiAssetForm.components.find(c => String(c.ref) === String(p.id)))
                   .map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
@@ -1286,7 +1286,7 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
               <div className="selected-components">
                 <h4>Selected Components ({multiAssetForm.components.length})</h4>
                 {multiAssetForm.components.map((comp, idx) => {
-                  const pipeline = singleAssetPipelines.find(p => p.id === comp.ref);
+                  const pipeline = singleAssetPipelines.find(p => String(p.id) === String(comp.ref));
                   const config = pipeline ? (typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config) : null;
                   
                   return (
