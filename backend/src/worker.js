@@ -1,11 +1,13 @@
 // backend/src/worker.js
 // Image processing worker - processes jobs from Redis queue with full Stage 0 & Stage 1 implementation
+// Includes automatic batch cleanup service
 
 const { Worker } = require('bullmq');
 const sharp = require('sharp');
 const fs = require('fs-extra');
 const path = require('path');
 const { Pool } = require('pg');
+const CleanupService = require('./services/cleanup');
 
 // Database connection
 const db = new Pool({
@@ -23,6 +25,9 @@ class ImagePipelineWorker {
     console.log('Initializing Image Pipeline Worker...');
     console.log(`Output path: ${OUTPUT_PATH}`);
     console.log(`Database: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
+
+    // Initialize cleanup service
+    this.cleanupService = new CleanupService(db);
 
     // Create worker for 'image-processing' queue
     this.worker = new Worker('image-processing', this.processJob.bind(this), {
@@ -619,6 +624,10 @@ class ImagePipelineWorker {
 
   start() {
     console.log('✓ Worker started, listening for jobs on "image-processing" queue...');
+    
+    // Start the cleanup service
+    console.log('✓ Starting automatic batch cleanup service...');
+    this.cleanupService.start();
   }
 }
 
@@ -629,6 +638,7 @@ worker.start();
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');
+  worker.cleanupService.stop();
   await worker.worker.close();
   process.exit(0);
 });

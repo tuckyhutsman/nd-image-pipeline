@@ -97,6 +97,11 @@ services:
       DB_NAME: ${DB_NAME:-pipeline_db}
       REDIS_URL: redis://redis:6379
       OUTPUT_PATH: /tmp/pipeline-output
+      # Batch Cleanup Configuration
+      AUTO_CLEANUP_ENABLED: ${AUTO_CLEANUP_ENABLED:-true}
+      BATCH_RETENTION_DAYS: ${BATCH_RETENTION_DAYS:-30}
+      FAILED_BATCH_RETENTION_DAYS: ${FAILED_BATCH_RETENTION_DAYS:-7}
+      CLEANUP_INTERVAL_HOURS: ${CLEANUP_INTERVAL_HOURS:-24}
     depends_on:
       postgres:
         condition: service_healthy
