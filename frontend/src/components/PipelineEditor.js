@@ -397,10 +397,13 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
         name: multiAssetForm.name,
         customer_id: 'default',
         pipeline_type: 'multi_asset',
+        components: multiAssetForm.components.map(comp => ({
+          pipeline_id: parseInt(comp.ref),
+          custom_suffix: comp.custom_suffix || null
+        })),
         config: {
           type: PIPELINE_TYPES.MULTI_ASSET,
           description: multiAssetForm.description,
-          components: multiAssetForm.components,
           outputArrangement: multiAssetForm.outputArrangement,
         },
       };
