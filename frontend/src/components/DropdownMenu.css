@@ -4,27 +4,28 @@
   background: none;
   border: none;
   font-size: 1.25rem;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all var(--transition-fast) var(--ease-smooth);
   line-height: 1;
 }
 
 .dropdown-trigger:hover {
-  background-color: #f8f9fa;
-  color: #495057;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* Portal-rendered dropdown menu */
 .dropdown-menu-portal {
-  background: white;
-  border: 1px solid #dee2e6;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   min-width: 160px;
   overflow: hidden;
+  animation: scaleIn var(--transition-fast) var(--ease-smooth);
 }
 
 .dropdown-item {
@@ -35,15 +36,15 @@
   text-align: left;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #212529;
-  transition: background-color 0.2s;
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast) var(--ease-smooth);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .dropdown-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bg-tertiary);
 }
 
 .dropdown-item.menu-item-danger {
