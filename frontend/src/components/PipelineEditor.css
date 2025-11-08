@@ -370,6 +370,15 @@
   background: #dc2626;
 }
 
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+}
+
 .btn-sm {
   padding: 6px 12px;
   font-size: 12px;
@@ -626,7 +635,6 @@
   line-height: 1.5;
 }
 
-
 /* Pipeline Grid Layout */
 .pipelines-grid {
   display: grid;
@@ -685,4 +693,36 @@
 .arrangement-text small {
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+/* Pipeline Tabs */
+.pipeline-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 30px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all var(--transition-fast) var(--ease-smooth);
+  position: relative;
+  bottom: -2px;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.tab-button.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
 }

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import PipelineEditor from './components/PipelineEditor';
-import PipelineList from './components/PipelineList';
 import JobSubmit from './components/JobSubmit';
 import JobList from './components/JobList';
 import DarkModeToggle from './components/DarkModeToggle';
@@ -95,20 +94,12 @@ function App() {
         {activeTab === 'submit' && <JobSubmit pipelines={pipelines} onJobSubmitted={handleJobSubmitted} />}
         {activeTab === 'jobs' && <JobList jobs={jobs} onRefresh={fetchJobs} />}
         {activeTab === 'pipelines' && (
-          editingPipelineId ? (
-            <PipelineEditor 
-              key={pipelineRefreshKey} 
-              editPipelineId={editingPipelineId}
-              onPipelineSaved={handlePipelineSaved}
-              onBack={handleBackToList}
-            />
-          ) : (
-            <PipelineList 
-              pipelines={pipelines} 
-              onRefresh={fetchPipelines}
-              onEdit={handleEditPipeline}
-            />
-          )
+          <PipelineEditor 
+            key={pipelineRefreshKey} 
+            editPipelineId={editingPipelineId}
+            onPipelineSaved={handlePipelineSaved}
+            onBack={handleBackToList}
+          />
         )}
       </div>
     </div>

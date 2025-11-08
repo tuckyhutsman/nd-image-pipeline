@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../config/api';
 import './PipelineEditor.css';
 import SliderWithHint from './SliderWithHint';
+import ConfirmDialog from './ConfirmDialog';
 import {
   PNG_COMPRESSION_HINTS,
   PNG8_COMPRESSION_HINTS,
@@ -206,6 +207,8 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'archived'
+  const [confirmDialog, setConfirmDialog] = useState(null); // For confirmation dialogs
 
   const [singleAssetForm, setSingleAssetForm] = useState({
     name: '',
@@ -531,17 +534,67 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
     setEditingId(pipeline.id);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this pipeline?')) return;
+  const handleArchive = async (pipeline) => {
+    setConfirmDialog({
+      title: 'Archive Pipeline?',
+      message: `Archive "${pipeline.name}"? It will be hidden from active pipelines but can be restored later.`,
+      confirmText: 'Archive',
+      confirmStyle: 'danger',
+      onConfirm: async () => {
+        try {
+          await apiClient.patch(`/pipelines/${pipeline.id}/archive`);
+          setSuccess('Pipeline archived');
+          fetchPipelines();
+          setTimeout(() => setSuccess(''), 2000);
+          setConfirmDialog(null);
+        } catch (err) {
+          setError('Error archiving pipeline: ' + err.message);
+          setConfirmDialog(null);
+        }
+      },
+    });
+  };
 
-    try {
-      await apiClient.delete(`/pipelines/${id}`);
-      setSuccess('Pipeline deleted');
-      fetchPipelines();
-      setTimeout(() => setSuccess(''), 2000);
-    } catch (err) {
-      setError('Error deleting pipeline: ' + err.message);
-    }
+  const handleUnarchive = async (pipeline) => {
+    setConfirmDialog({
+      title: 'Restore Pipeline?',
+      message: `Restore "${pipeline.name}" to active pipelines?`,
+      confirmText: 'Restore',
+      confirmStyle: 'primary',
+      onConfirm: async () => {
+        try {
+          await apiClient.patch(`/pipelines/${pipeline.id}/unarchive`);
+          setSuccess('Pipeline restored');
+          fetchPipelines();
+          setTimeout(() => setSuccess(''), 2000);
+          setConfirmDialog(null);
+        } catch (err) {
+          setError('Error restoring pipeline: ' + err.message);
+          setConfirmDialog(null);
+        }
+      },
+    });
+  };
+
+  const handleDelete = async (pipeline) => {
+    setConfirmDialog({
+      title: 'Delete Pipeline?',
+      message: `Permanently delete "${pipeline.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmStyle: 'danger',
+      onConfirm: async () => {
+        try {
+          await apiClient.delete(`/pipelines/${pipeline.id}`);
+          setSuccess('Pipeline deleted');
+          fetchPipelines();
+          setTimeout(() => setSuccess(''), 2000);
+          setConfirmDialog(null);
+        } catch (err) {
+          setError('Error deleting pipeline: ' + err.message);
+          setConfirmDialog(null);
+        }
+      },
+    });
   };
 
   // Render list view
@@ -562,6 +615,22 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
 
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
+
+        {/* Active/Archived Tabs */}
+        <div className="pipeline-tabs">
+          <button 
+            className={`tab-button ${activeTab === 'active' ? 'active' : ''}`}
+            onClick={() => setActiveTab('active')}
+          >
+            Active ({pipelines.filter(p => !p.archived).length})
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'archived' ? 'active' : ''}`}
+            onClick={() => setActiveTab('archived')}
+          >
+            Archived ({pipelines.filter(p => p.archived).length})
+          </button>
+        </div>
 
         <div className="templates-section">
           <h3>Quick Start Templates</h3>
@@ -586,15 +655,17 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
               <h3>Single Asset Pipelines</h3>
               {pipelines.filter(p => {
                 const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
-                return config.type === PIPELINE_TYPES.SINGLE_ASSET;
+                const matchesTab = activeTab === 'active' ? !p.archived : p.archived;
+                return config.type === PIPELINE_TYPES.SINGLE_ASSET && matchesTab;
               }).length === 0 ? (
-                <p className="empty-message">No single-asset pipelines yet.</p>
+                <p className="empty-message">No {activeTab} single-asset pipelines yet.</p>
               ) : (
                 <div className="pipeline-list">
                   {pipelines
                     .filter(p => {
                       const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
-                      return config.type === PIPELINE_TYPES.SINGLE_ASSET;
+                      const matchesTab = activeTab === 'active' ? !p.archived : p.archived;
+                      return config.type === PIPELINE_TYPES.SINGLE_ASSET && matchesTab;
                     })
                     .map((pipeline) => {
                       const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
@@ -605,12 +676,25 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
                             {config.description && <p className="pipeline-desc">{config.description}</p>}
                           </div>
                           <div className="pipeline-actions">
-                            <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
-                              Edit
-                            </button>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline.id)}>
-                              Delete
-                            </button>
+                            {activeTab === 'active' ? (
+                              <>
+                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
+                                  Edit
+                                </button>
+                                <button className="btn btn-sm btn-warning" onClick={() => handleArchive(pipeline)}>
+                                  Archive
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="btn btn-sm btn-primary" onClick={() => handleUnarchive(pipeline)}>
+                                  Restore
+                                </button>
+                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -624,15 +708,17 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
               <h3>Multi Asset Pipelines</h3>
               {pipelines.filter(p => {
                 const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
-                return config.type === PIPELINE_TYPES.MULTI_ASSET;
+                const matchesTab = activeTab === 'active' ? !p.archived : p.archived;
+                return config.type === PIPELINE_TYPES.MULTI_ASSET && matchesTab;
               }).length === 0 ? (
-                <p className="empty-message">No multi-asset pipelines yet.</p>
+                <p className="empty-message">No {activeTab} multi-asset pipelines yet.</p>
               ) : (
                 <div className="pipeline-list">
                   {pipelines
                     .filter(p => {
                       const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
-                      return config.type === PIPELINE_TYPES.MULTI_ASSET;
+                      const matchesTab = activeTab === 'active' ? !p.archived : p.archived;
+                      return config.type === PIPELINE_TYPES.MULTI_ASSET && matchesTab;
                     })
                     .map((pipeline) => {
                       const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
@@ -646,12 +732,25 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
                             )}
                           </div>
                           <div className="pipeline-actions">
-                            <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
-                              Edit
-                            </button>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline.id)}>
-                              Delete
-                            </button>
+                            {activeTab === 'active' ? (
+                              <>
+                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
+                                  Edit
+                                </button>
+                                <button className="btn btn-sm btn-warning" onClick={() => handleArchive(pipeline)}>
+                                  Archive
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="btn btn-sm btn-primary" onClick={() => handleUnarchive(pipeline)}>
+                                  Restore
+                                </button>
+                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -661,6 +760,20 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
             </div>
           </div>
         </div>
+
+        {/* Confirmation Dialog */}
+        {confirmDialog && (
+          <ConfirmDialog
+            isOpen={true}
+            onClose={() => setConfirmDialog(null)}
+            title={confirmDialog.title}
+            message={confirmDialog.message}
+            confirmText={confirmDialog.confirmText || 'Confirm'}
+            cancelText="Cancel"
+            danger={confirmDialog.confirmStyle === 'danger'}
+            onConfirm={confirmDialog.onConfirm}
+          />
+        )}
       </div>
     );
   }
