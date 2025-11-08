@@ -58,16 +58,19 @@ const OUTPUT_ARRANGEMENTS = [
   {
     value: 'flat',
     label: 'Flat Directory',
-    description: 'All outputs in single directory (PL_XXX_2025_11_05)',
+    icon: '📁',
+    description: 'All outputs in single directory',
   },
   {
     value: 'by_asset_type',
     label: 'By Asset Type',
+    icon: '📂',
     description: 'Subdirectories for each asset type (_web, _hero, _highres)',
   },
   {
     value: 'by_input_file',
     label: 'By Input File',
+    icon: '🗂️',
     description: 'Each input file gets its own subdirectory',
   },
 ];
@@ -580,33 +583,86 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
         </div>
 
         <div className="pipelines-section">
-          <h3>Your Pipelines ({pipelines.length})</h3>
-          {pipelines.length === 0 ? (
-            <p className="empty-message">No pipelines yet. Create one or use a template above!</p>
-          ) : (
-            <div className="pipeline-list">
-              {pipelines.map((pipeline) => {
-                const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
-                return (
-                  <div key={pipeline.id} className="pipeline-item">
-                    <div className="pipeline-info">
-                      <h4>{pipeline.name}</h4>
-                      <p className="pipeline-type">{config.type === PIPELINE_TYPES.SINGLE_ASSET ? 'Single Asset' : 'Multi Asset'}</p>
-                      {config.description && <p className="pipeline-desc">{config.description}</p>}
-                    </div>
-                    <div className="pipeline-actions">
-                      <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
-                        Edit
-                      </button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline.id)}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="pipelines-grid">
+            {/* Single Asset Column */}
+            <div className="pipeline-column">
+              <h3>Single Asset Pipelines</h3>
+              {pipelines.filter(p => {
+                const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
+                return config.type === PIPELINE_TYPES.SINGLE_ASSET;
+              }).length === 0 ? (
+                <p className="empty-message">No single-asset pipelines yet.</p>
+              ) : (
+                <div className="pipeline-list">
+                  {pipelines
+                    .filter(p => {
+                      const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
+                      return config.type === PIPELINE_TYPES.SINGLE_ASSET;
+                    })
+                    .map((pipeline) => {
+                      const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
+                      return (
+                        <div key={pipeline.id} className="pipeline-item">
+                          <div className="pipeline-info">
+                            <h4>{pipeline.name}</h4>
+                            {config.description && <p className="pipeline-desc">{config.description}</p>}
+                          </div>
+                          <div className="pipeline-actions">
+                            <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
+                              Edit
+                            </button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Multi Asset Column */}
+            <div className="pipeline-column">
+              <h3>Multi Asset Pipelines</h3>
+              {pipelines.filter(p => {
+                const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
+                return config.type === PIPELINE_TYPES.MULTI_ASSET;
+              }).length === 0 ? (
+                <p className="empty-message">No multi-asset pipelines yet.</p>
+              ) : (
+                <div className="pipeline-list">
+                  {pipelines
+                    .filter(p => {
+                      const config = typeof p.config === 'string' ? JSON.parse(p.config) : p.config;
+                      return config.type === PIPELINE_TYPES.MULTI_ASSET;
+                    })
+                    .map((pipeline) => {
+                      const config = typeof pipeline.config === 'string' ? JSON.parse(pipeline.config) : pipeline.config;
+                      return (
+                        <div key={pipeline.id} className="pipeline-item">
+                          <div className="pipeline-info">
+                            <h4>{pipeline.name}</h4>
+                            {config.description && <p className="pipeline-desc">{config.description}</p>}
+                            {config.components && (
+                              <p className="pipeline-meta">{config.components.length} components</p>
+                            )}
+                          </div>
+                          <div className="pipeline-actions">
+                            <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(pipeline)}>
+                              Edit
+                            </button>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(pipeline.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1080,8 +1136,11 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
                     onChange={(e) => setMultiAssetForm({...multiAssetForm, outputArrangement: e.target.value})}
                   />
                   <div className="arrangement-label">
-                    <strong>{arr.label}</strong>
-                    <small>{arr.description}</small>
+                    <span className="arrangement-icon">{arr.icon}</span>
+                    <div className="arrangement-text">
+                      <strong>{arr.label}</strong>
+                      <small>{arr.description}</small>
+                    </div>
                   </div>
                 </label>
               ))}
@@ -1102,9 +1161,11 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
                 defaultValue=""
               >
                 <option value="">-- Select a pipeline to add --</option>
-                {singleAssetPipelines.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
+                {singleAssetPipelines
+                  .filter(p => !multiAssetForm.components.find(c => c.ref === p.id))
+                  .map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
               </select>
               {singleAssetPipelines.length === 0 && (
                 <small className="helper-text">No single-asset pipelines available. Create one first!</small>
