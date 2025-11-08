@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
     
     let query = `
       SELECT 
-        p.id, p.name, p.description, p.config, p.is_active, p.archived, 
+        p.id, p.name, p.description, p.notes, p.config, p.is_active, p.archived, 
         p.is_template, p.is_protected, p.protection_reason, p.pipeline_type,
         p.archived_at, p.created_at, p.updated_at,
         COALESCE(
@@ -85,7 +85,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { name, description, config, pipeline_type, components } = req.body;
+  const { name, description, notes, config, pipeline_type, components } = req.body;
   
   try {
     // Start transaction
@@ -93,11 +93,12 @@ router.post('/', async (req, res) => {
     
     // Create the pipeline
     const pipelineResult = await global.db.query(
-      `INSERT INTO pipelines (name, description, config, pipeline_type) 
-       VALUES ($1, $2, $3, $4) RETURNING *`,
+      `INSERT INTO pipelines (name, description, notes, config, pipeline_type) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [
         name, 
         description || '', 
+        notes || null,
         JSON.stringify(config || {}),
         pipeline_type || 'single'
       ]
@@ -151,7 +152,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { name, description, config, components } = req.body;
+  const { name, description, notes, config, components } = req.body;
   
   try {
     // Start transaction
@@ -173,9 +174,9 @@ router.put('/:id', async (req, res) => {
     // Update the pipeline
     const result = await global.db.query(
       `UPDATE pipelines 
-       SET name = $1, description = $2, config = $3, updated_at = NOW() 
-       WHERE id = $4 RETURNING *`,
-      [name, description || '', JSON.stringify(config), req.params.id]
+       SET name = $1, description = $2, notes = $3, config = $4, updated_at = NOW() 
+       WHERE id = $5 RETURNING *`,
+      [name, description || '', notes || null, JSON.stringify(config), req.params.id]
     );
     
     // If multi-asset pipeline and components provided, update them
