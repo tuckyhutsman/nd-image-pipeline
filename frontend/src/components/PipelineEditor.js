@@ -249,11 +249,8 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
     // If editPipelineId provided, load that pipeline for editing
     if (editPipelineId && editPipelineId !== 'new') {
       loadPipelineForEditing(editPipelineId);
-    } else if (editPipelineId === 'new') {
-      // Creating new pipeline - go directly to editor
-      setMode('create-single');
-      setEditingId(null);
     }
+    // Note: When editPipelineId is 'new' or undefined, stay on list view
   }, [editPipelineId]);
 
   const fetchPipelines = async () => {
