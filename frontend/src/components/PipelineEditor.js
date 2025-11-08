@@ -330,6 +330,7 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
       const payload = {
         name: singleAssetForm.name,
         customer_id: 'default',
+        pipeline_type: 'single',
         config: {
           type: PIPELINE_TYPES.SINGLE_ASSET,
           ...singleAssetForm,
@@ -395,6 +396,7 @@ function PipelineEditor({ onPipelineSaved, editPipelineId, onBack }) {
       const payload = {
         name: multiAssetForm.name,
         customer_id: 'default',
+        pipeline_type: 'multi_asset',
         config: {
           type: PIPELINE_TYPES.MULTI_ASSET,
           description: multiAssetForm.description,
