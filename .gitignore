@@ -31,14 +31,17 @@ Thumbs.db
 /output/
 pipeline-output/
 
-# Database
+# Database data and dumps
 postgres_data/
 redis_data/
-*.sql
+*.dump
+*.backup
+*_backup.sql
+dump_*.sql
+backup_*.sql
 
-# BUT: Allow migration files and init-db.sql
-!backend/migrations/*.sql
-!init-db.sql
+# Claude Code
+.claude/
 
 # Temporary
 *.tmp

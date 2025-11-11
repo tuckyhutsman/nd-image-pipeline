@@ -16,14 +16,26 @@ CREATE TABLE IF NOT EXISTS pipelines (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL UNIQUE,
   description TEXT,
+  notes TEXT,
   config JSONB NOT NULL,
+  pipeline_type VARCHAR(20) DEFAULT 'single',
   is_active BOOLEAN DEFAULT TRUE,
+  archived BOOLEAN DEFAULT FALSE,
+  is_template BOOLEAN DEFAULT FALSE,
+  is_protected BOOLEAN DEFAULT FALSE,
+  protection_reason TEXT,
+  archived_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX idx_pipelines_active ON pipelines(is_active);
 CREATE INDEX idx_pipelines_name ON pipelines(name);
+CREATE INDEX idx_pipelines_archived ON pipelines(archived);
+CREATE INDEX idx_pipelines_is_template ON pipelines(is_template);
+CREATE INDEX idx_pipelines_type ON pipelines(pipeline_type);
+CREATE INDEX idx_pipelines_protected ON pipelines(is_protected);
+CREATE INDEX idx_pipelines_notes_search ON pipelines USING gin(to_tsvector('english', notes));
 
 -- ====================
 -- BATCHES TABLE
@@ -39,11 +51,14 @@ CREATE TABLE IF NOT EXISTS batches (
   
   -- User input
   render_description VARCHAR(255),
-  
+  custom_name VARCHAR(255),
+  name_customized BOOLEAN DEFAULT FALSE,
+
   -- Statistics
   total_files INTEGER NOT NULL DEFAULT 0,
   total_pipelines INTEGER NOT NULL DEFAULT 1,
   total_size BIGINT NOT NULL DEFAULT 0,
+  total_output_size BIGINT DEFAULT 0,
   pipeline_id INTEGER REFERENCES pipelines(id),
   
   -- Status tracking
@@ -68,6 +83,35 @@ CREATE INDEX idx_batches_customer_date ON batches(customer_prefix, batch_date);
 CREATE INDEX idx_batches_status ON batches(status);
 CREATE INDEX idx_batches_created_at ON batches(created_at DESC);
 CREATE INDEX idx_batches_pipeline_id ON batches(pipeline_id);
+CREATE INDEX idx_batches_name_customized ON batches(name_customized);
+
+-- ====================
+-- PIPELINE COMPONENTS TABLE
+-- ====================
+-- Links multi-asset pipelines to their component pipelines
+CREATE TABLE IF NOT EXISTS pipeline_components (
+  id SERIAL PRIMARY KEY,
+
+  -- The multi-asset pipeline that contains this component
+  parent_pipeline_id INTEGER NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+
+  -- The component pipeline to execute
+  component_pipeline_id INTEGER NOT NULL REFERENCES pipelines(id) ON DELETE RESTRICT,
+
+  -- Display order in UI and execution
+  order_index INTEGER NOT NULL DEFAULT 0,
+
+  -- Optional: Override output suffix for this component
+  custom_suffix VARCHAR(50),
+
+  created_at TIMESTAMP DEFAULT NOW(),
+
+  -- Prevent adding same pipeline twice to same multi-asset pipeline
+  UNIQUE(parent_pipeline_id, component_pipeline_id)
+);
+
+CREATE INDEX idx_pipeline_components_parent ON pipeline_components(parent_pipeline_id);
+CREATE INDEX idx_pipeline_components_component ON pipeline_components(component_pipeline_id);
 
 -- ====================
 -- JOBS TABLE
@@ -116,7 +160,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   
   -- Metadata
   metadata JSONB,
-  worker_id VARCHAR(255)
+  worker_id VARCHAR(255),
+
+  -- Component tracking for multi-asset pipelines
+  component_id INTEGER REFERENCES pipeline_components(id)
 );
 
 CREATE INDEX idx_jobs_batch_id ON jobs(batch_id);
@@ -124,6 +171,7 @@ CREATE INDEX idx_jobs_pipeline_id ON jobs(pipeline_id);
 CREATE INDEX idx_jobs_status ON jobs(status);
 CREATE INDEX idx_jobs_created_at ON jobs(created_at DESC);
 CREATE INDEX idx_jobs_worker_id ON jobs(worker_id);
+CREATE INDEX idx_jobs_component_id ON jobs(component_id);
 
 -- ====================
 -- TRIGGERS
@@ -190,6 +238,47 @@ CREATE TRIGGER trigger_pipelines_updated_at
   BEFORE UPDATE ON pipelines
   FOR EACH ROW
   EXECUTE FUNCTION update_pipelines_timestamp();
+
+-- Update pipeline protection status when components are added/removed
+CREATE OR REPLACE FUNCTION update_pipeline_protection()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Update protection for the component pipeline
+  UPDATE pipelines SET
+    is_protected = EXISTS (
+      SELECT 1 FROM pipeline_components
+      WHERE component_pipeline_id = COALESCE(NEW.component_pipeline_id, OLD.component_pipeline_id)
+    ) OR is_template = TRUE,
+    protection_reason = CASE
+      WHEN is_template = TRUE THEN 'System template pipeline'
+      WHEN EXISTS (
+        SELECT 1 FROM pipeline_components
+        WHERE component_pipeline_id = COALESCE(NEW.component_pipeline_id, OLD.component_pipeline_id)
+      ) THEN (
+        SELECT 'Referenced by ' || COUNT(*) || ' multi-asset pipeline' ||
+               CASE WHEN COUNT(*) > 1 THEN 's' ELSE '' END
+        FROM pipeline_components
+        WHERE component_pipeline_id = COALESCE(NEW.component_pipeline_id, OLD.component_pipeline_id)
+      )
+      ELSE NULL
+    END
+  WHERE id = COALESCE(NEW.component_pipeline_id, OLD.component_pipeline_id);
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_protect_on_component_add ON pipeline_components;
+CREATE TRIGGER trigger_protect_on_component_add
+  AFTER INSERT ON pipeline_components
+  FOR EACH ROW
+  EXECUTE FUNCTION update_pipeline_protection();
+
+DROP TRIGGER IF EXISTS trigger_unprotect_on_component_remove ON pipeline_components;
+CREATE TRIGGER trigger_unprotect_on_component_remove
+  AFTER DELETE ON pipeline_components
+  FOR EACH ROW
+  EXECUTE FUNCTION update_pipeline_protection();
 
 -- ====================
 -- SEED DATA
