@@ -1,52 +1,46 @@
-#!/bin/bash
-# Git deployment script for database fix + slider system
+6#!/bin/bash
 
-cd /Users/robertcampbell/Developer/nd-image-pipeline
+# Usage: ./deploy.sh dev  OR  ./deploy.sh prod
 
-echo "📦 Staging all changes..."
-git add .
+ENV=$1
 
-echo "📝 Creating commit..."
-git commit -m "Fix database initialization and complete slider hint system
+if [ "$ENV" = "dev" ]; then
+    HOST="nd-dev"
+    BRANCH="dev"
+elif [ "$ENV" = "prod" ]; then
+    HOST="nd-prod"
+    BRANCH="main"
+else
+    echo "Usage: ./deploy.sh [dev|prod]"
+    exit 1
+fi
 
-CRITICAL FIX:
-- Add missing init-db.sql with complete database schema
-- Fixes 'relation batches does not exist' errors
-- Creates pipelines, batches, and jobs tables with proper indexes
-
-DATABASE SCHEMA:
-- Complete table definitions with foreign keys
-- Automatic triggers for batch status updates
-- Timestamp triggers for updated_at fields
-- UUID generation for batches and jobs
-- Seed data with default pipeline
-
-SLIDER SYSTEM:
-- Implement dynamic slider hint system with temporal color gradients
-- Fix color gradient algorithm using position-based stops (no flickers)
-- 4-color gradient for PNG (Green→Blue→Orange→Red)
-- Bold monospace algorithm names with performance badges
-- Fixed-width value box (60px) with white text
-- Light gray slider track with colored thumb
-- All colored elements transition together smoothly
-
-BUG FIXES:
-- Fix JobSubmit HTTP 400 error (parse pipeline_id as integer)
-- Fix color interpolation to prevent blue/green flickers
-- Match form-group label styling for consistency
-
-DEPLOYMENT:
-- Requires database reset: docker compose down -v
-- See DATABASE_FIX_DEPLOYMENT.md for instructions"
-
-echo "🚀 Pushing to GitHub..."
-git push origin main
-
-echo "✅ Done! Now deploy on LXC with:"
+echo "🚀 Deploying $BRANCH branch to $HOST..."
 echo ""
-echo "  cd ~/image-pipeline-app"
-echo "  git pull origin main"
-echo "  docker compose down -v"
-echo "  docker compose up -d --build"
+
+ssh $HOST << EOF
+    cd /opt/nd-image-pipeline
+    
+    echo "📥 Pulling latest code from GitHub..."
+    git fetch origin
+    git checkout $BRANCH
+    git pull origin $BRANCH
+    
+    echo ""
+    echo "🔄 Restarting containers..."
+    sudo docker compose down
+    sudo docker compose up -d --build
+    
+    echo ""
+    echo "✅ Deployment complete!"
+    echo ""
+    echo "📊 Container status:"
+    sudo docker compose ps
+    
+    echo ""
+    echo "📋 Recent logs:"
+    sudo docker compose logs --tail=20
+EOF
+
 echo ""
-echo "⚠️  WARNING: docker compose down -v will delete all existing data!"
+echo "🎉 Done! Your changes are live on $ENV"
