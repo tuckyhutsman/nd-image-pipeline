@@ -1,4 +1,4 @@
-6#!/bin/bash
+#!/bin/bash
 
 # Usage: ./deploy.sh dev  OR  ./deploy.sh prod
 
