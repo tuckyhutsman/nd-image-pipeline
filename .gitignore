@@ -1,3 +1,5 @@
+# Updated gitignore for nd-image-pipeline
+
 # Dependencies
 node_modules/
 npm-debug.log*
