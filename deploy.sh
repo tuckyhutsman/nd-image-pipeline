@@ -20,16 +20,16 @@ echo ""
 
 ssh $HOST << EOF
     cd /opt/nd-image-pipeline
-    
+
     echo "📥 Pulling latest code from GitHub..."
     git fetch origin
     git checkout $BRANCH
     git pull origin $BRANCH
-    
+
     echo ""
     echo "🔄 Restarting containers..."
     sudo docker compose down
-    sudo docker compose up -d --build
+    BUILD_DATE=\$(date +%Y-%m-%d) sudo -E docker compose up -d --build
     
     echo ""
     echo "✅ Deployment complete!"

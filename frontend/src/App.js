@@ -68,6 +68,8 @@ function App() {
     fetchJobs();
   };
 
+  const buildDate = process.env.REACT_APP_BUILD_DATE || 'unknown';
+
   return (
     <div className="app">
       <div className="header">
@@ -94,14 +96,20 @@ function App() {
         {activeTab === 'submit' && <JobSubmit pipelines={pipelines} onJobSubmitted={handleJobSubmitted} />}
         {activeTab === 'jobs' && <JobList jobs={jobs} onRefresh={fetchJobs} />}
         {activeTab === 'pipelines' && (
-          <PipelineEditor 
-            key={pipelineRefreshKey} 
+          <PipelineEditor
+            key={pipelineRefreshKey}
             editPipelineId={editingPipelineId}
             onPipelineSaved={handlePipelineSaved}
             onBack={handleBackToList}
           />
         )}
       </div>
+
+      <footer className="footer">
+        <div className="container">
+          <p className="footer-text">Deployed: {buildDate}</p>
+        </div>
+      </footer>
     </div>
   );
 }

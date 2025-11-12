@@ -68,6 +68,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE:-unknown}
     container_name: pipeline-web
     env_file: .env
     environment:

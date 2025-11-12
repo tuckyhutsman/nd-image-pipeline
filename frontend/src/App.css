@@ -373,3 +373,25 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 body.dark-mode ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Footer */
+.footer {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  padding: 16px 0;
+  margin-top: 48px;
+  border-top: 1px solid var(--border-color);
+  transition: all var(--transition-normal) var(--ease-smooth);
+}
+
+body.dark-mode .footer {
+  background: var(--bg-header);
+  border-top-color: var(--border-dark);
+}
+
+.footer-text {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-muted);
+}
