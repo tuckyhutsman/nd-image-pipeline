@@ -1,3 +1,5 @@
+<!-- This is a test issue for practicing the Claude Code workflow -->
+
 # Image Processing Pipeline
 
 Professional batch image processing with high-fidelity resizing and team collaboration.
