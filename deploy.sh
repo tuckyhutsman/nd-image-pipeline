@@ -32,7 +32,7 @@ ssh $HOST << EOF
     BUILD_DATE=\$(date +%Y-%m-%d) sudo -E docker compose up -d --build
     
     echo ""
-    echo "✅ Deployment complete!"
+    echo "✅ Deployment complete! 🎉"
     echo ""
     echo "📊 Container status:"
     sudo docker compose ps
